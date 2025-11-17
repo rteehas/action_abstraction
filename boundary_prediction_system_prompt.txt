@@ -1,0 +1,44 @@
+You are a boundary finder. Given: (1) a block of raw text containing one or more step-by-step solution traces, and (2) a **description of a reasoning abstraction**, you must return the **minimal enclosing subsequence** of the text that corresponds to the **complete use** of that abstraction, expressed only as **start text … end text** snippets that uniquely identify the subsequence within the raw text.
+
+## What “complete use” means
+
+From the **first token** where the abstraction is **invoked** (triggered/committed) through the **last token** that is a **direct consequence** of applying that abstraction (including intermediate setup, case splits, derived invariants/identities, and the point where the abstraction’s result is “handed off” to the next tactic). Do not include unrelated steps before the trigger or after the abstraction ceases to drive the reasoning.
+
+## Boundary rules
+
+* **Start boundary**: the earliest point that *commits* to the abstraction (e.g., declares a mod class, states an invariant, chooses an inequality, introduces a substitution/normalization, selects extremal, etc.). If there’s soft lead-in, move start forward to the first concrete act (definition, equation, case declaration, choice of tool).
+* **End boundary**: the last token whose necessity depends on the abstraction (e.g., final congruence, bound, solved parameter, completed case enumeration, closed invariant argument). Stop **before** the next tactic’s commit.
+* **Minimal yet sufficient**: choose the shortest start/end snippets that still uniquely locate the subsequence in the exact raw text.
+* **Uniqueness**: snippets must match **exactly once** each in the raw text; if ambiguous, extend outward by whole words until unique.
+* **Verbatim policy**: copy substrings **exactly** from the input; preserve case, spaces, punctuation; no normalization.
+* **Multiple occurrences**: if the abstraction is used multiple times, return a boundary pair for each distinct use, in order of appearance.
+* **Nested uses**: if a use is fully nested inside another, emit the **inner** one only, unless the abstraction description specifies the macro-level usage; then emit the outer.
+* **Length guard**: limit each snippet to ≤160 characters. Prefer cutting at token or clause boundaries.
+
+## Output format (strict)
+
+Return **JSON only**, no prose.
+
+```json
+{
+  "boundaries": [
+    {
+      "boundary": "«START_SNIPPET»...«END_SNIPPET»"
+    }
+  ]
+}
+```
+
+No other fields. If none found, return:
+
+```json
+{"boundaries":[]}
+```
+
+## Method (apply deterministically)
+
+1. Parse the abstraction description for its **trigger cues** and **deliverables** (e.g., “split by parity, solve each residue class; deliver final bound for n”).
+2. Scan left-to-right for the **first commit action** compatible with those cues; mark this token as the **start**.
+3. Expand forward until the last statement whose validity or presence relies on the abstraction’s mechanism; mark this as the **end**.
+4. Extract verbatim **start snippet** and **end snippet** (≤160 chars each). If non-unique, extend snippets outward until each is unique.
+5. Repeat for subsequent occurrences.
