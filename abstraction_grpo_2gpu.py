@@ -242,7 +242,7 @@ class RolloutSaveCallback(TrainerCallback):
 # MODEL_NAME = "Qwen/Qwen3-8B"
 # LORA_PATH = "/scratch/rst306/action_abstractions/action_abstraction/qwen-abstraction_generation/checkpoint-1070"
 MODEL_NAME = "Qwen/Qwen3-1.7B"
-LORA_PATH = "/scratch/rst306/action_abstractions/action_abstraction/sft_models/Qwen3_1_7B-abstraction_generation/checkpoint-7764"
+LORA_PATH = "/scratch/rst306/action_abstractions/action_abstraction/sft_models/Qwen3_1_7B-abstraction_generation/20260108_134158/checkpoint-17589"
 # --- CHANGE: force the trainable model onto the (only visible) GPU0
 base_model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
@@ -585,7 +585,7 @@ if __name__ == "__main__":
     req_q = ctx.Queue()
     resp_q = ctx.Queue()
 
-    sp_solve_kwargs = dict(temperature=0.6, top_p=0.95, top_k=20, max_tokens=8000)
+    sp_solve_kwargs = dict(temperature=0.6, top_p=0.95, top_k=20, max_tokens=8000, n=2)
     # judge should be short + deterministic
     sp_judge_kwargs = dict(temperature=0.0, top_p=1.0, max_tokens=128)
     solver_proc = ctx.Process(
@@ -676,7 +676,8 @@ if __name__ == "__main__":
 
     config = GRPOConfig(
         output_dir=f"/scratch/rst306/action_abstractions/action_abstraction/grpo_runs/qwen3_1_7b_deepscaler_easy/{now}",
-        num_train_epochs=10000000,
+        # num_train_epochs=6,
+        num_train_epochs=100000000,
         adam_beta2=0.95,
         learning_rate=args.lr,
         report_to="wandb",
@@ -687,7 +688,9 @@ if __name__ == "__main__":
         per_device_train_batch_size=8,
         per_device_eval_batch_size=8,
         gradient_accumulation_steps=1,
+        # num_generations=8,
         num_generations=4,
+        # generation_batch_size=128,
         generation_batch_size=32,
         gradient_checkpointing=True,
         # eval_strategy="steps",
@@ -695,8 +698,8 @@ if __name__ == "__main__":
         # eval_steps=200,
         gradient_checkpointing_kwargs={"use_reentrant": False},
         logging_steps=1,
-        # save_steps=200,          # <-- pick your cadence
-        # save_total_limit=4,     # optional
+        save_steps=200,          # <-- pick your cadence
+        save_total_limit=4,     # optional
         seed=args.seed,
         data_seed=args.seed
     )
