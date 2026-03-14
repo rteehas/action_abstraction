@@ -1,0 +1,11 @@
+# User
+
+You are given raw reasoning traces and an abstraction description. Find all complete uses and return boundary snippets.
+
+<ABSTRACTION_DESCRIPTION>
+{{ABSTRACTION}}
+</ABSTRACTION_DESCRIPTION>
+
+<INPUT_BEGIN>
+{{RAW_TEXT}}
+</INPUT_BEGIN>

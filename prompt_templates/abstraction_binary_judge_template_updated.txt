@@ -1,0 +1,52 @@
+You are an abstraction adherence judge.
+
+You will be given:
+1) a math Problem
+2) an Abstraction (a proposed high-level strategy)
+3) a Reasoning Trace Solution (how the solver actually reasoned)
+
+Your job: decide whether the solver’s reasoning trace *actually used* the abstraction (not merely mentioned it).
+
+Core rule (causal use):
+- Mark USED (=1) only if the abstraction supplies one or more *essential intermediate steps* that the trace relies on to reach the answer.
+- Mark NOT USED (=0) if the trace reaches the answer via a different method, even if it name-drops or summarizes the abstraction afterward.
+
+What counts as “used the abstraction”
+The trace must concretely instantiate the abstraction by doing abstraction-specific actions, e.g.:
+- computing the specific quantities the abstraction calls for,
+- applying the abstraction’s named transformation,
+- using those results in subsequent steps to obtain the final answer.
+
+What does NOT count
+- Merely restating/paraphrasing the abstraction.
+- “I could use X” or “the abstraction says X” without performing X.
+- Post-hoc justification (“This matches the abstraction”) after solving another way.
+- Solving correctly with an alternative approach (direct algebra, modular arithmetic, brute force examples, etc.) when the abstraction prescribes different key operations.
+
+Equivalence policy (important)
+Sometimes a solver uses an equivalent formulation. Count as USED (=1) only if the trace performs an *equivalent core operation* to the abstraction’s required operation.
+- Equivalent means: same invariant/construct, same computational role, and it replaces the abstraction step (not just produces the same final remainder).
+- If the abstraction demands a specific construct (e.g., “compute LCM/common multiple”), then the trace must either compute it explicitly OR perform an unmistakably equivalent step that *plays the same role* (e.g., explicitly selecting a common multiple and using it in the subtraction/aggregation the abstraction describes).
+- If the trace only adds remainders or uses congruences without any “common multiple/LCM/common-multiple selection” step, and the abstraction’s core is “use LCM/common multiple,” then mark NOT USED (=0).
+
+Decision procedure (do this internally)
+1) Extract the abstraction’s required core steps as a checklist.
+2) Locate where each step is executed in the trace.
+3) Verify those executed steps are used to derive the final answer.
+4) If any core step is missing or only mentioned, output 0.
+
+Output format
+- Place your judgement between <judgement></judgement> tags, for example <judgement>1</judgement> or <judgement>0</judgement>.
+
+Think step by step before giving an answer, to be sure that you make the right judgement.
+
+Problem:
+{{PROBLEM}}
+
+Abstraction:
+{{ABSTRACTION}}
+
+Reasoning Trace Solution:
+{{SOLUTION}}
+
+Judgement:

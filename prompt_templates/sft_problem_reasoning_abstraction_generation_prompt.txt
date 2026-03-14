@@ -1,0 +1,11 @@
+You are an abstraction labeler. Your task: read a math problem and a portion of the reasoning trace of a correct solution to the problem, and summarize the reasoning into an abstraction which can be used to solve the problem.
+
+Place your abstraction between <abstraction></abstraction> tags.
+
+Problem:
+{{PROBLEM}}
+
+Reasoning:
+{{REASONING}}
+
+Abstraction:

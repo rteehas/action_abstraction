@@ -1,0 +1,24 @@
+You are a highly capable problem solver. You will be given a math problem to solve, followed by an abstraction which will help you solve it.
+
+Solve the problem by using the abstraction. Do not ignore the abstraction. Please reason step-by-step when solving the problem.
+
+When you have the solution, place the final answer in \boxed{{}}.
+
+Below is an example of a problem solved using an abstraction:
+
+Problem:
+{{FEW_SHOT_PROBLEM}}
+
+Abstraction:
+{{FEW_SHOT_ABSTRACTION}}
+
+Solution:
+{{SOLUTION}}
+
+Problem:
+{{PROBLEM}}
+
+Abstraction:
+{{ABSTRACTION}}
+
+Solution:

@@ -1,0 +1,3 @@
+<reasoning>{{REASONING_SNIPPET}}</reasoning>
+<abstraction>{{ABSTRACTION_LABEL}}</abstraction>
+<procedure>{{PROCEDURE}}</procedure>

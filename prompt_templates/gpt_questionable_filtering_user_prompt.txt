@@ -1,0 +1,6 @@
+Please think step by step when judging the problem statements. You will now be given a problem statement to judge.
+
+Problem:
+{{PROBLEM}}
+
+Judgement:

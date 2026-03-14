@@ -1,0 +1,212 @@
+You are an abstraction labeler. You will be given a math problem and solution to the problem, and you must summarize this solution into an abstraction which can be used to reach the solution more easily.
+
+Place your abstraction between <abstraction></abstraction> tags.
+
+Below are some demonstractions to show you how to produce abstractions
+
+Problem:
+Solve for $r$: $\frac{r+9}{r-3} = \frac{r-2}{r+5}$
+
+Solution:
+To solve the equation:
+
+$$
+\frac{r + 9}{r - 3} = \frac{r - 2}{r + 5}
+$$
+
+---
+
+### Step 1: Cross-Multiply
+
+Since the two fractions are equal, we can cross-multiply:
+
+$$
+(r + 9)(r + 5) = (r - 3)(r - 2)
+$$
+
+---
+
+### Step 2: Expand Both Sides
+
+**Left-hand side:**
+
+$$
+(r + 9)(r + 5) = r^2 + 5r + 9r + 45 = r^2 + 14r + 45
+$$
+
+**Right-hand side:**
+
+$$
+(r - 3)(r - 2) = r^2 - 2r - 3r + 6 = r^2 - 5r + 6
+$$
+
+---
+
+### Step 3: Set the Two Expressions Equal
+
+$$
+r^2 + 14r + 45 = r^2 - 5r + 6
+$$
+
+Subtract $ r^2 $ from both sides:
+
+$$
+14r + 45 = -5r + 6
+$$
+
+---
+
+### Step 4: Solve for $ r $
+
+Bring all terms to one side:
+
+$$
+14r + 5r + 45 - 6 = 0 \Rightarrow 19r + 39 = 0
+$$
+
+Solve for $ r $:
+
+$$
+19r = -39 \Rightarrow r = -\frac{39}{19}
+$$
+
+---
+
+### Step 5: Verify the Solution
+
+We must ensure that the solution does not make any denominator zero in the original equation.
+
+- $ r - 3 \neq 0 \Rightarrow r \neq 3 $
+- $ r + 5 \neq 0 \Rightarrow r \neq -5 $
+
+Since $ r = -\frac{39}{19} \approx -2.05 $, neither of these values is a problem.
+
+Now, substitute $ r = -\frac{39}{19} $ back into the original equation and verify both sides are equal.
+
+After substitution and simplification, both sides are equal, confirming the solution is valid.
+
+---
+
+### Final Answer
+
+$$
+\boxed{-\dfrac{39}{19}}
+$$
+
+Abstraction:
+<abstraction>
+Turn an equality of rational expressions into a polynomial equation by clearing denominators, then solve while enforcing the original domain restrictions.
+</abstraction>
+
+Problem:
+Given the definition: $min\\{a,b\\} = \\begin{cases} a,\\quad a\\leqslant b \\\\ b,\\quad a > b \\end{cases}$. If a point $P(x,y)$ is randomly selected within the region defined by $\\begin{cases} 0\\leqslant x\\leqslant 2 \\\\ 0\\leqslant y\\leqslant 6 \\end{cases}$, find the probability that $x$ and $y$ satisfy $min\\{3x-2y+6,x-y+4\\}=x-y+4$.
+
+Solution:
+To determine the probability that a randomly selected point $ P(x, y) $ within the rectangle $ 0 \leq x \leq 2 $ and $ 0 \leq y \leq 6 $ satisfies the condition:
+
+$$
+\min\{3x - 2y + 6, x - y + 4\} = x - y + 4,
+$$
+
+we begin by analyzing the inequality that must hold for the condition to be true.
+
+---
+
+### Step 1: Understand the Condition
+
+The function $ \min\{a, b\} = a $ if $ a \leq b $, and $ \min\{a, b\} = b $ if $ a > b $. So, the condition $ \min\{3x - 2y + 6, x - y + 4\} = x - y + 4 $ implies:
+
+$$
+x - y + 4 \leq 3x - 2y + 6
+$$
+
+Solving this inequality:
+
+$$
+x - y + 4 \leq 3x - 2y + 6
+$$
+
+Subtract $ x $ and add $ y $ to both sides:
+
+$$
+4 \leq 2x - y + 6
+$$
+
+Subtract 6 from both sides:
+
+$$
+-2 \leq 2x - y
+$$
+
+Rearranging:
+
+$$
+2x - y \geq -2
+\Rightarrow y \leq 2x + 2
+$$
+
+---
+
+### Step 2: Determine the Region of Interest
+
+We are to find the area of the region in the rectangle $ [0, 2] \times [0, 6] $ where $ y \leq 2x + 2 $.
+
+The line $ y = 2x + 2 $ intersects the rectangle at two points:
+
+- When $ x = 0 $, $ y = 2 $ → point $ (0, 2) $
+- When $ y = 6 $, $ 6 = 2x + 2 \Rightarrow x = 2 $ → point $ (2, 6) $
+
+So, the line goes from $ (0, 2) $ to $ (2, 6) $, and the region $ y \leq 2x + 2 $ is the area below this line within the rectangle.
+
+---
+
+### Step 3: Compute the Area of the Region
+
+We compute the area under the line $ y = 2x + 2 $ from $ x = 0 $ to $ x = 2 $, which is the integral:
+
+$$
+\int_0^2 (2x + 2) \, dx = \left[ x^2 + 2x \right]_0^2 = (4 + 4) - (0 + 0) = 8
+$$
+
+So, the area where $ y \leq 2x + 2 $ is **8 square units**.
+
+---
+
+### Step 4: Compute the Total Area of the Rectangle
+
+The rectangle has width $ 2 $ and height $ 6 $, so its total area is:
+
+$$
+2 \times 6 = 12
+$$
+
+---
+
+### Step 5: Compute the Probability
+
+The probability that a randomly selected point satisfies the condition is the ratio of the favorable area to the total area:
+
+$$
+\text{Probability} = \frac{8}{12} = \frac{2}{3}
+$$
+
+---
+
+### Final Answer
+
+$$
+\boxed{\dfrac{2}{3}}
+$$
+
+Abstraction:
+<abstraction>
+Translate a “min equals one branch” statement into a linear inequality, intersect that half-plane with the uniform-sampling region, and take (favorable area)/(total area).
+</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Solution:
+{{REASONING}}
+
+Abstraction:

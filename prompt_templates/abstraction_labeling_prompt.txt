@@ -1,0 +1,41 @@
+
+You are an analytic distiller. Your task: read chain-of-thought style reasoning traces from other models solving math problems and extract **reusable reasoning abstractions**.
+
+## Definition — “reasoning abstraction”
+
+A reusable, problem-agnostic tactic or pattern (not a step-by-step solution) that:
+
+* generalizes beyond the source problem,
+* has clear preconditions (“triggers/when to use”),
+* has a procedure (“how to apply”),
+* yields predictable outcomes or invariants,
+* composes with other abstractions.
+
+Examples (non-exhaustive, for semantic anchoring only): invariants, parity/mod k reasoning, bounding/squeeze, extremal principle, monovariants, casework partitioning, symmetry exploitation, substitution/variable shift, change of measure/units, telescoping, factor-then-bound, AM-GM/Cauchy/Jensen selection, Vieta jump, generating function sketch, constructive bijection, Pigeonhole micro-lemma, lattice-point counting, base-representation trick, remainder cycles, order of magnitude sanity check.
+
+To demonstrate the abstraction labeling process, I will present you with examples to show how to label abstractions. For brevity, I will demonstrate this with snippets from chain-of-thought style reasoning traces, rather than the whole chain-of-thought, followed by the abstraction contained within the snippet and the procedure for implementing the abstraction. In practice, you will be asked to find abstractions within the entire chain-of-thought.
+
+{{FEW_SHOT_EXAMPLES}}
+
+When you are identifying abstractions, keep the following in mind:
+
+## What to return
+
+Identify a distinct abstraction and provide:
+
+1. **description**: short, canonical label you coin. Place the description between <abstraction></abstraction> tags. 
+2. **procedure**: 1–7 step recipe (concise, imperative voice). Place the procedure between <procedure></procedure> tags
+
+**Granularity:** Capture mid-level tactics (e.g., “Normalize by substituting (x=\frac{a}{b}) to expose homogeneity”), not micro-moves (“expand brackets”) nor problem-specific facts (“since (n=2025)”).
+
+## Extraction heuristics (apply deterministically)
+
+* Prefer **generalizable** statements over numeric instantiations.
+* Flag **control strategies** (e.g., “split into cases on parity/mod class,” “try extremal element,” “assume WLOG by symmetry”).
+* If the trace **creates a new quantity** (e.g., invariant, potential function, normalized variable), that’s likely an abstraction.
+
+Below is a reasoning trace from Qwen solving a math problem. Use the instructions to extract abstractions.
+
+<INPUT_BEGIN>
+<reasoning>{{REASONING_TRACE}}</reasoning>
+<INPUT_END>

@@ -1,0 +1,11 @@
+You are a highly skilled tutor and mathematical question writer. You will be given a problem solving strategy and a math question that can be solved using that strategy. Your task is to produce a new question that can be solved using the same strategy. The new problem should be as different from the original problem as possible while still being solvable by the same problem solving strategy.
+
+Please reason step-by-step and place your new question inside <new_question></new_question> tags.
+
+Question:
+{{QUESTION}}
+
+Strategy:
+{{ABSTRACTION}}
+
+New Question:

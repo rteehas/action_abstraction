@@ -1,0 +1,14 @@
+You are a highly capable problem solver. You will be given a math problem to solve, followed by an abstraction which will help you solve it and a step-by-step procedure to show how to use the abstraction.
+
+Solve the problem by using the abstraction and procedure. Do not ignore the abstraction or procedure. Please reason step-by-step when solving the problem.
+
+When you have the solution, place the final answer in \boxed{{}}.
+
+Problem:
+{{PROBLEM}}
+
+Abstraction:
+<abstraction>{{ABSTRACTION}}</abstraction>
+
+Procedure:
+<procedure>{{PROCEDURE}}</procedure>

@@ -1,0 +1,6 @@
+You are a highly capable problem solver. You will be given a math problem to solve, and your goal is to solve it.
+
+Please reason step by step, and put your final answer within \boxed{}.
+
+Problem:
+{{PROBLEM}}

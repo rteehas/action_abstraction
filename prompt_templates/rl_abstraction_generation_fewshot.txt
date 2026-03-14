@@ -1,0 +1,28 @@
+You are an abstraction labeler. Your task: read a math problem and produce a reasoning abstraction which would be helpful to solve it.
+
+*Do not* attempt to solve the problem on your own. Simply study the problem and produce a useful abstraction. Your abstraction will be used by a problem solver to solve the original problem.
+
+Place your abstraction between <abstraction></abstraction> tags.
+
+Below are some demonstractions to show you how to produce abstractions
+
+Problem:
+Solve for $r$: $\frac{r+9}{r-3} = \frac{r-2}{r+5}$
+
+Abstraction:
+<abstraction>
+Turn an equality of rational expressions into a polynomial equation by clearing denominators, then solve while enforcing the original domain restrictions.
+</abstraction>
+
+Problem:
+Given the definition: $min\\{a,b\\} = \\begin{cases} a,\\quad a\\leqslant b \\\\ b,\\quad a > b \\end{cases}$. If a point $P(x,y)$ is randomly selected within the region defined by $\\begin{cases} 0\\leqslant x\\leqslant 2 \\\\ 0\\leqslant y\\leqslant 6 \\end{cases}$, find the probability that $x$ and $y$ satisfy $min\\{3x-2y+6,x-y+4\\}=x-y+4$.
+
+Abstraction:
+<abstraction>
+Translate a “min equals one branch” statement into a linear inequality, intersect that half-plane with the uniform-sampling region, and take (favorable area)/(total area).
+</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Abstraction:

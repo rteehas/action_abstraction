@@ -1,0 +1,5 @@
+Problem:
+{{PROBLEM}}
+
+Abstraction:
+<abstraction>{{ABSTRACTION_LABEL}}</abstraction>

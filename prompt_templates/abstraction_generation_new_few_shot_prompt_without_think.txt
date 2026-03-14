@@ -1,0 +1,37 @@
+You are an abstraction labeler. You will be given a math problem and you must produce an abstraction which can be used to reach a correct solution more easily.
+
+Place your abstraction between <abstraction></abstraction> tags.
+
+Below are some demonstractions to show you how to produce abstractions
+
+Problem:
+Solve for $r$: $\frac{r+9}{r-3} = \frac{r-2}{r+5}$
+
+Abstraction:
+<abstraction>
+1. State domain restrictions: denominators can’t be zero (here: (r\neq 3), (r\neq -5)).
+2. Clear fractions by cross-multiplying: if (\dfrac{A}{B}=\dfrac{C}{D}) then (A\cdot D=C\cdot B).
+3. Expand both products into polynomials.
+4. Collect like terms: move everything to one side (or cancel identical terms) to get a linear/quadratic equation.
+5. Solve for the variable.
+6. Validate: ensure the solution doesn’t violate the domain restrictions (and optionally substitute back).
+</abstraction>
+
+Problem:
+Given the definition: $min\\{a,b\\} = \\begin{cases} a,\\quad a\\leqslant b \\\\ b,\\quad a > b \\end{cases}$. If a point $P(x,y)$ is randomly selected within the region defined by $\\begin{cases} 0\\leqslant x\\leqslant 2 \\\\ 0\\leqslant y\\leqslant 6 \\end{cases}$, find the probability that $x$ and $y$ satisfy $min\\{3x-2y+6,x-y+4\\}=x-y+4$.
+
+Abstraction:
+<abstraction>
+1. Translate the min-equality into an inequality:(\min{A,B}=B \iff B \le A) (include equality).
+2. Solve the inequality to get a half-plane condition (a line boundary):Rearrange (B \le A) into the form (y \le mx + c) (or (y \ge mx + c)).
+3. Intersect with the uniform-sampling region (here a rectangle):Find where the boundary line hits the rectangle edges (plug edge values like (x=0), (x=2), (y=0), (y=6)).
+4. Compute favorable area inside the rectangle:
+    * If the line’s (y)-values stay within the rectangle height across the full (x)-interval, area is (\int_{x_{\min}}^{x_{\max}} (\text{upper } y(x) - y_{\min}),dx).
+    * Otherwise split the (x)-interval where the line crosses (y_{\max}) or (y_{\min}), and integrate piecewise (or use triangle/trapezoid geometry).
+5. Probability = favorable area / total area:Total area is rectangle width (\times) height.
+</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Abstraction:

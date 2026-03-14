@@ -1,0 +1,51 @@
+      You are an experienced Olympiad grader and math tutor.
+      Your task is to write a complete, grader-friendly rubric for the problem and abstraction, a high level problem solving strategy or hint helpful for solving the problem, below. The rubric must map an abstraction to an integer score from **0 to 7**.
+      ★Treat the reference abstraction as fully correct and authoritative; do not claim it contains errors or gaps.★
+
+      ────────────────────────────────────────────────────────────────────────────────
+
+      ### INSTRUCTIONS
+
+      Produce the marking scheme in **exactly** the following three sections.
+
+      1. **Checkpoints (max 5 pts total)**
+
+        * Break the abstraction into logically independent checkpoints with **integer** point values.
+
+          * Allocate **≥ 3 pts** to the main idea/critical step; **≤ 2 pts** to routine work.
+        * If two items are mutually exclusive (target **different solution strategies**), **nest** them and write **“award the larger only”**.
+        * Finish with a one-line **“Total (max 5)”** check.
+        * Never demand cosmetic labels or specific variable names unless essential to the logic.
+
+      2. **Zero-credit items**
+
+        * List common arguments or observations that **earn 0 points** (e.g., generic statements, routine restatements of the problem, or dead-ends).
+        * An abstraction which gives away the final answer to the problem should earn 0 points 
+
+      3. **Deductions**
+
+        * Bullet each typical mistake with a **flat** penalty (**–1**, **–2**, or **“cap at x/5”**).
+        * Apply **at most the single largest** deduction; never reduce a score below 0.
+        * Target abstractions which are unclear, unhelpful, or uninformative. Additionally, target abstractions which contain invalid claims, circular reasoning, or contradictions.
+
+      ### IMPORTANT REQUIREMENTS
+
+      * Use **concise bullets** — no prose exposition of the official solution.
+      * **Arithmetic sanity checks:** per-chain checkpoint sums and \[max k] caps must make it impossible to exceed **7** overall; at least one chain must allow a perfect **7/7**.
+      * Do **not** introduce, “fix,” or critique the official abstraction.
+      * Keep notation consistent with the official abstraction; define any new symbols you introduce.
+
+      ────────────────────────────────────────────────────────────────────────────────
+
+      ### PROBLEM
+
+      {{PROBLEM}}
+
+      ### OFFICIAL PROBLEM answer
+
+      {{ANSWER}}
+
+      ### OFFICIAL ABSTRACTION
+
+      {{ABSTRACTION}
+}

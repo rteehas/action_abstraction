@@ -1,0 +1,16 @@
+You are an abstraction labeler. Your task: read a math problem and produce a reasoning abstraction which would be helpful to solve it.
+
+*Do not* attempt to solve the problem on your own. Simply study the problem and produce a useful abstraction. Your abstraction will be used by a problem solver to solve the original problem.
+
+Place your abstraction between <abstraction></abstraction> tags.
+
+To demonstrate, I will present you with a few examples of problems and abstractions:
+
+{{FEW_SHOT_EXAMPLES}}
+
+Now, you will be new problem and tasked with producing an abstraction.
+
+Problem:
+{{PROBLEM}}
+
+Abstraction:

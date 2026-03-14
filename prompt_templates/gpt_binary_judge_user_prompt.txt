@@ -1,0 +1,12 @@
+Please think step by step when judging the abstractions. You will now be given a problem, abstraction, and reasoning trace solution.
+
+Problem:
+{{PROBLEM}}
+
+Abstraction:
+{{ABSTRACTION}}
+
+Reasoning Trace Solution:
+{{SOLUTION}}
+
+Judgement:

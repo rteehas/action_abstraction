@@ -1,0 +1,5 @@
+Below is a reasoning trace from Qwen solving an AIME problem. Use the instructions to output JSON only.
+
+<INPUT_BEGIN>
+{REASONING_TRACES}
+<INPUT_END>
