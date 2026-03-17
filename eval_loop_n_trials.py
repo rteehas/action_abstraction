@@ -23,6 +23,16 @@ def make_problem_solving_prompt_one_shot(problem, abstraction, one_shot_problem,
     prompt = problem_solving_prompt_template.replace("{{PROBLEM}}", problem).replace("{{ABSTRACTION}}", abstraction).replace("{{FEW_SHOT_PROBLEM}}", one_shot_problem).replace("{{FEW_SHOT_ABSTRACTION}}", one_shot_abstraction).replace("{{SOLUTION}}", one_shot_solution)
     return prompt
 
+def make_problem_solving_prompt_hint_conditioned(problem, abstraction):
+    with open("/scratch/rst306/action_abstractions/action_abstraction/prompt_templates/hint_conditioned_problem_solving.txt", 'r') as fp:
+        lines = fp.readlines()
+    
+    problem_solving_prompt_template = "".join(lines)
+
+    prompt = problem_solving_prompt_template.replace("{{PROBLEM}}", problem).replace("{{ABSTRACTION}}", abstraction)
+    return prompt
+
+
 def get_one_shot_example():
     from functools import partial
     from process_deepscaler_dataset import get_generated_answers, compute_num_correct
@@ -55,14 +65,10 @@ def run_one_trial(
         ex["prompt"] = prompt
         return ex
 
-    # Map prompts (cheap; deterministic)
     ds = dataset.map(make_abstration_generation_prompt)
 
     tokenizer = AutoTokenizer.from_pretrained(base_model)
 
-    # -----------------------
-    # 1) Generate abstractions
-    # -----------------------
     abstraction_sampling = SamplingParams(
         temperature=1.0, top_p=0.95, top_k=20, max_tokens=32768, seed=seed
     )
@@ -70,10 +76,8 @@ def run_one_trial(
     if sft_lora_path == "":
         llm = LLM(
             model=base_model,
-            # enable_lora=True,
             max_num_batched_tokens=8192,
         )
-
     else:
         llm = LLM(
             model=base_model,
@@ -116,22 +120,17 @@ def run_one_trial(
     abstraction_column = "generated_abstraction"
     ds_filtered = ds_with_generations.filter(lambda ex: ex[abstraction_column] is not None)
 
-    # Free LoRA engine before solving (matches your current approach)
     del outputs
     del llm
     gc.collect()
     torch.cuda.empty_cache()
 
-    # -----------------------
-    # 2) Solve problems conditioned on abstraction
-    # -----------------------
     solve_sampling = SamplingParams(
         temperature=solver_temp, top_p=0.95, top_k=20, max_tokens=32768, n=1, seed=seed
     )
 
     if solver_lora_path == "":
         llm = LLM(model=base_model)
-    
     else:
         llm = LLM(
             model=base_model,
@@ -144,8 +143,6 @@ def run_one_trial(
             solver_lora_path,
         )
 
-
-
     solve_texts = []
     for ex in tqdm(ds_filtered, desc=f"[trial {trial_idx}] creating solve messages"):
         problem = ex["problem"]
@@ -154,7 +151,10 @@ def run_one_trial(
             one_shot_problem, one_shot_abstraction, one_shot_solution = get_one_shot_example()
             prompt = make_problem_solving_prompt_one_shot(problem, abstraction, one_shot_problem, one_shot_abstraction, one_shot_solution)
         else:
-            prompt = make_problem_solving_prompt(problem, abstraction)
+            if solver_lora_path == "":
+                prompt = make_problem_solving_prompt(problem, abstraction)
+            else:
+                prompt = make_problem_solving_prompt_hint_conditioned(problem, abstraction)
 
         messages = [{"role": "user", "content": prompt}]
         text = tokenizer.apply_chat_template(
@@ -167,6 +167,7 @@ def run_one_trial(
 
     print("SOLVER TEXT")
     print(solve_texts[0])
+
     if solver_lora_path == "":
         outputs = llm.generate(solve_texts, solve_sampling)
     else:
@@ -180,29 +181,6 @@ def run_one_trial(
         "abstraction_conditioned_problem_solutions", problem_solutions
     )
 
-    # -----------------------
-    # 3) Score + report
-    # -----------------------
-    # get_ans = partial(
-    #     get_generated_answers,
-    #     answer_column="abstraction_conditioned_problem_solutions",
-    # )
-    # ds_scored = ds_with_solutions.map(get_ans).map(compute_num_correct)
-
-    # num_correct = int(sum(ds_scored["passrate"]))
-    # acc = float(num_correct / ds_scored.num_rows)
-    # num_invalid = int(ds_scored.filter(lambda ex: ex["generated_answer"][0] is None).num_rows)
-
-    # final_report = {
-    #     "trial": trial_idx,
-    #     "seed": seed,
-    #     "num_correct": num_correct,
-    #     "accuracy": acc,
-    #     "num_invalid": num_invalid,
-    # }
-    # -----------------------
-    # 3) Score + report
-    # -----------------------
     get_ans = partial(
         get_generated_answers,
         answer_column="abstraction_conditioned_problem_solutions",
@@ -215,6 +193,8 @@ def run_one_trial(
     final_report = {
         "trial": trial_idx,
         "seed": seed,
+        "abstraction_generator_lora_path": sft_lora_path,
+        "solver_lora_path": solver_lora_path,
         "overall": overall,
         "by_source": by_source,
     }
@@ -229,7 +209,6 @@ def run_one_trial(
         )
         print(f"[trial {trial_idx}] saved model outputs to {trial_dir}")
 
-    # Cleanup
     del outputs
     del llm
     gc.collect()
@@ -238,7 +217,6 @@ def run_one_trial(
     return final_report
 
 def metrics_from_scored(ds_scored):
-    # passrate is 0/1 per row after compute_num_correct
     num_rows = ds_scored.num_rows
     num_correct = int(sum(ds_scored["passrate"]))
     acc = float(num_correct / num_rows) if num_rows else 0.0
@@ -258,19 +236,7 @@ def per_source_report(ds_scored):
         out[s] = metrics_from_scored(ds_s)
     return out
 
-# def summarize_reports(reports):
-#     keys = ["num_correct", "accuracy", "num_invalid"]
-#     summary = {}
-#     for k in keys:
-#         vals = np.array([r[k] for r in reports], dtype=np.float64)
-#         summary[k] = {
-#             "mean": float(vals.mean()),
-#             "std": float(vals.std(ddof=1)) if len(vals) > 1 else 0.0,
-#         }
-#     return summary
-
 def summarize_reports(reports):
-    # overall + each source key present
     def summarize_block(blocks):
         keys = ["num_rows", "num_correct", "accuracy", "num_invalid"]
         summary = {}
@@ -284,14 +250,18 @@ def summarize_reports(reports):
 
     overall_summary = summarize_block([r["overall"] for r in reports])
 
-    # union of sources across trials
     sources = sorted({s for r in reports for s in r["by_source"].keys()})
     per_source_summary = {
         s: summarize_block([r["by_source"][s] for r in reports])
         for s in sources
     }
 
-    return {"overall": overall_summary, "by_source": per_source_summary}
+    return {
+        "abstraction_generator_lora_path": reports[0]["abstraction_generator_lora_path"] if reports else "",
+        "solver_lora_path": reports[0]["solver_lora_path"] if reports else "",
+        "overall": overall_summary,
+        "by_source": per_source_summary,
+    }
 
 
 if __name__ == "__main__":
@@ -318,12 +288,10 @@ if __name__ == "__main__":
         sft_prompt_template = fp.read()
 
     base_model = "Qwen/Qwen3-1.7B"
-    # sft_lora_path = "/scratch/rst306/action_abstractions/action_abstraction/sft_models/Qwen3_1_7B-abstraction_generation/20260115_092723/checkpoint-23631"
     sft_lora_path = args.sft_lora_path
     print(f"Evaluating lora path: {sft_lora_path} for abs gen")
     print(f"Evaluating lora path: {args.solver_lora_path} for solver")
 
-    # dataset = load_dataset("TianHongZXY/aime-1983-2025", split="test")
     print("AIME 2025 and AMC 2023")
     dataset = load_from_disk("aime2025_amc2023_eval_set")
 
