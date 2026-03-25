@@ -77,6 +77,18 @@ logger = logging.getLogger(__file__)
 logger.setLevel(logging.INFO)
 
 
+def _get_vllm_server_name(config: RolloutConfig, replica_rank: int, node_rank: int, is_reward_model: bool = False) -> str:
+    custom_cfg = getattr(config, 'custom', None)
+    prefix = None
+    if custom_cfg is not None:
+        prefix = custom_cfg.get('server_name_prefix')
+
+    base_name = 'vllm_server_reward' if is_reward_model else 'vllm_server'
+    if prefix:
+        base_name = f'{base_name}_{prefix}'
+    return f'{base_name}_{replica_rank}_{node_rank}'
+
+
 class vLLMHttpServer:
     """vLLM http server in single node, this is equivalent to launch server with command line:
     ```
@@ -825,10 +837,11 @@ class vLLMReplica(RolloutReplica):
                 worker_cuda_visible_devices[node_rank * gpus_per_replica_node : (node_rank + 1) * gpus_per_replica_node]
             )
             node_id = worker_node_ids[node_rank * gpus_per_replica_node]
-            name = (
-                f"vllm_server_{self.replica_rank}_{node_rank}"
-                if not self.is_reward_model
-                else f"vllm_server_reward_{self.replica_rank}_{node_rank}"
+            name = _get_vllm_server_name(
+                self.config,
+                replica_rank=self.replica_rank,
+                node_rank=node_rank,
+                is_reward_model=self.is_reward_model,
             )
             server = self.server_class.options(
                 scheduling_strategy=ray.util.scheduling_strategies.NodeAffinitySchedulingStrategy(

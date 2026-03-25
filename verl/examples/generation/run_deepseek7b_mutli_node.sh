@@ -5,8 +5,8 @@ save_path=$HOME/data/rlhf/math/deepseek_v2_lite_gen_test.parquet
 model_path=deepseek-ai/deepseek-llm-7b-chat
 
 python3 -m verl.trainer.main_generation \
-    trainer.nnodes=2 \
-    trainer.n_gpus_per_node=8 \
+    trainer.nnodes=1 \
+    trainer.n_gpus_per_node=1 \
     data.path=$data_path \
     data.prompt_key=prompt \
     data.n_samples=1 \

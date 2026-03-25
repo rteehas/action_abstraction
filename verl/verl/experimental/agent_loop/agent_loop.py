@@ -422,12 +422,14 @@ class AgentLoopWorker:
             response_mask: | 1, 1, 1, ..., 1, 1 | 0, 0, .., 0, 0 | 1, 1, 1, ..., 1, 1 | 0, 0, ..., 0|
         """
         config = self.rollout_config
+        response_length = int(batch.meta_info.get("response_length", config.response_length))
         sampling_params = dict(
-            temperature=config.temperature,
-            top_p=config.top_p,
-            top_k=config.top_k,
+            temperature=batch.meta_info.get("temperature", config.temperature),
+            top_p=batch.meta_info.get("top_p", config.top_p),
+            top_k=batch.meta_info.get("top_k", config.top_k),
             repetition_penalty=1.0,
             logprobs=config.calculate_log_probs,
+            max_tokens=response_length,
         )
 
         # override sampling params for validation
@@ -472,7 +474,13 @@ class AgentLoopWorker:
             kwargs = {k: v[i] for k, v in batch.non_tensor_batch.items()}
             tasks.append(
                 asyncio.create_task(
-                    self._run_agent_loop(sampling_params, trajectory_info[i], trace=trace_this_sample, **kwargs)
+                    self._run_agent_loop(
+                        sampling_params,
+                        trajectory_info[i],
+                        trace=trace_this_sample,
+                        response_length=response_length,
+                        **kwargs,
+                    )
                 )
             )
         outputs = await asyncio.gather(*tasks)
@@ -518,6 +526,7 @@ class AgentLoopWorker:
     async def _agent_loop_postprocess(self, output, **kwargs) -> _InternalAgentLoopOutput:
         """Perform post-processing operations on the output of each individual agent loop."""
         output.extra_fields["raw_prompt"] = kwargs["raw_prompt"]
+        max_response_length = int(kwargs.get("response_length", self.rollout_config.response_length))
 
         # Some AgentLoop may have already computed the reward score, e.g SWE-agent.
 
@@ -556,7 +565,7 @@ class AgentLoopWorker:
         response_output = self.tokenizer.pad(
             {"input_ids": output.response_ids},
             padding="max_length",
-            max_length=self.rollout_config.response_length,
+            max_length=max_response_length,
             return_tensors="pt",
             return_attention_mask=True,
         )
@@ -567,7 +576,7 @@ class AgentLoopWorker:
         response_mask_output = self.tokenizer.pad(
             {"input_ids": output.response_mask},
             padding="max_length",
-            max_length=self.rollout_config.response_length,
+            max_length=max_response_length,
             return_tensors="pt",
             return_attention_mask=False,
         )
@@ -576,7 +585,7 @@ class AgentLoopWorker:
 
         response_logprobs = None
         if output.response_logprobs is not None:
-            pad_size = self.rollout_config.response_length - len(output.response_logprobs)
+            pad_size = max_response_length - len(output.response_logprobs)
             response_logprobs = torch.tensor(output.response_logprobs + [0.0] * pad_size).unsqueeze(0)
 
         response_mask = response_mask_output["input_ids"] * response_output["attention_mask"]

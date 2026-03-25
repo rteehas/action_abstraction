@@ -48,6 +48,18 @@ logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "INFO"))
 
 
+def _get_vllm_server_name(config: RolloutConfig, replica_rank: int, node_rank: int) -> str:
+    custom_cfg = getattr(config, 'custom', None)
+    prefix = None
+    if custom_cfg is not None:
+        prefix = custom_cfg.get('server_name_prefix')
+
+    base_name = 'vllm_server'
+    if prefix:
+        base_name = f'{base_name}_{prefix}'
+    return f'{base_name}_{replica_rank}_{node_rank}'
+
+
 def _check_vllm_version_for_sleep_level():
     # https://github.com/vllm-project/vllm/issues/25171
     minver = "0.11.0"
@@ -131,7 +143,9 @@ class ServerAdapter(BaseRollout):
 
         # Lazy init http server adapter because http server is launched after hybrid engine.
         if self.server_handle is None:
-            self.server_handle = ray.get_actor(f"vllm_server_{self.replica_rank}_{self.node_rank}")
+            self.server_handle = ray.get_actor(
+                _get_vllm_server_name(self.config, replica_rank=self.replica_rank, node_rank=self.node_rank)
+            )
 
         future = self.server_handle.collective_rpc.remote(method, timeout=timeout, args=args, kwargs=kwargs)
         return future if non_block else await future
