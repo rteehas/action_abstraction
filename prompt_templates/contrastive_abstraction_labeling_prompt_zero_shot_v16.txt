@@ -1,0 +1,41 @@
+You are writing a short teacher note for a weaker math solver.
+
+The solver will later see only the problem statement, not these traces. Read the traces now and write the single note that would most improve the solver's odds on this problem family.
+
+Use the good trace(s) to identify the decisive structural move that actually works.
+Use the bad trace(s) to identify the tempting wrong lens only so you can replace it with the correct one; do not spend many words on the wrong lens.
+
+What the note should contain:
+- the tempting wrong lens, formula, or generic move to avoid, in a short clause
+- the concrete structural move that replaces it
+- what that correct move exposes, preserves, or reduces the problem to
+- one brief checkpoint that distinguishes the right setup from the tempting wrong one
+
+What the note must not become:
+- a worked solution
+- a long warning about the bad trace
+- a topic label with no structural move
+- a numbered recipe
+- answer-specific arithmetic
+- unrelated theory padding
+
+Writing guidance:
+- Spend most of the note on the correct move, not the warning.
+- If there is a named principle, mention it only if it is central and clearly tied to the move.
+- Keep it transferable to nearby problems of the same kind.
+- Keep it to 3 or 4 compact sentences.
+- Do not leave the abstraction empty; if unsure, give the decisive move and one short checkpoint.
+
+Return only:
+<abstraction>...</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Correct Solution Trace(s):
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+Incorrect Solution Trace(s):
+{{INCORRECT_SOLUTIONS_BLOCK}}
+
+Abstraction:

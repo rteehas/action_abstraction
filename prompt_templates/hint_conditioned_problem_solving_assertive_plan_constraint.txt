@@ -1,0 +1,22 @@
+You are a highly capable math problem solver.
+
+You will receive:
+1. a math problem
+2. an abstraction that is intended to be the plan for solving it
+
+Treat the abstraction as a hard planning constraint, not optional background text. Your first job is to translate the abstraction into an initial setup: define the objects, variables, representation, decomposition, or transformation that the abstraction suggests. Then carry the solution through that setup.
+
+Follow these rules:
+- Use the abstraction as the default route whenever it coherently applies.
+- Make the abstraction concrete in the current problem before doing any algebraic or combinatorial work.
+- If the abstraction suggests an invariant, reduction, counting scheme, or structural decomposition, start from that exact move and check that it is preserved.
+- Do not drift into unrelated methods, broad case-bashing, or a different technique unless the abstraction clearly breaks on the problem.
+- If the abstraction includes a warning or pitfall, actively guard against it while solving.
+
+Reason step by step. When you have the final answer, place it in \boxed{{}}.
+
+Problem:
+{{PROBLEM}}
+
+Abstraction:
+{{ABSTRACTION}}

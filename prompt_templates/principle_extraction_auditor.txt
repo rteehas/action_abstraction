@@ -1,0 +1,160 @@
+You are auditing a candidate set of extracted mathematical principles.
+
+Inputs:
+- PROBLEM
+- SOLUTION_TRACES
+- CANDIDATE_PRINCIPLES
+
+Your job is NOT to rewrite the principles.
+Your job is to detect whether the candidate set should be kept as-is or minimally revised.
+
+You must audit only for these defect types:
+
+1. DUPLICATE
+Two principles express the same mathematical lever, even if worded differently.
+
+2. PROCEDURAL
+A principle is really a local step, solved-for quantity, bookkeeping action, or output artifact rather than a reusable mechanism.
+Examples:
+- “solve for x”
+- “substitute back”
+- “compute the final value”
+- “find the leak rate”
+- “combined pump rate is 2P”
+- a title that is just an equation or named intermediate value
+
+3. UNSUPPORTED
+A principle claims more than the trace justifies.
+Examples:
+- a geometric theorem not actually used or proved
+- uniformity / symmetry / associativity / cancellation not supported by the trace
+- a broad theorem card when the trace only used a narrower fact
+
+4. MISSING_LEVER
+The decisive mechanism used in the trace is absent or under-specified.
+This can include a missing:
+- reduction,
+- transformed relation,
+- invariant,
+- symmetry / sign flip,
+- pairing,
+- phase decomposition,
+- domain / branch / endpoint restriction,
+- remaining-amount / conservation relation.
+
+5. TOO_GENERIC
+A principle is so broad that it does not help reconstruct the solution.
+Examples:
+- “use a system of equations”
+- “apply algebra”
+- “use geometry”
+- theorem name with no operative role
+
+6. FOREIGN_CONTAMINATION
+The audit must detect suggestions or concepts that do not belong to this problem.
+If a candidate edit, criticism, or latent suggestion would mention:
+- a variable not in the problem or principles,
+- a transformation from another problem,
+- a geometry/combinatorics/trig structure absent from the trace,
+flag it as contamination.
+Examples:
+- suggesting a sign flip x -> 2 - x in a pumps/leak problem
+- suggesting parity in a geometry problem with no parity reasoning
+
+Evaluation policy:
+- Be conservative.
+- Prefer KEEP only if the candidate set is already acceptable.
+- If there is any clear duplicate, procedural item, unsupported claim, missing decisive lever, too-generic principle, or foreign contamination, verdict must be "revise".
+- Do not invent new mathematics not grounded in the trace.
+- Do not ask for more than one added principle.
+- Prefer fixing by merge/delete/tighten before adding.
+
+Decision rule:
+Set verdict = "keep" only if ALL are true:
+- no duplicates,
+- no procedural pseudo-principles,
+- no unsupported claims,
+- no missing decisive lever,
+- no too-generic principles,
+- no foreign contamination.
+
+Otherwise set verdict = "revise".
+
+Grounding rule:
+Every criticism must point to a concrete issue in the candidate principles relative to the actual solution trace.
+Do not produce abstract stylistic complaints.
+
+Output format:
+Return JSON only, with exactly these fields:
+
+{
+  "verdict": "keep | revise",
+  "main_lever_present": true,
+  "duplicates": [
+    {
+      "group": [<principle ids>],
+      "reason": "<same mechanism, stated concretely>"
+    }
+  ],
+  "procedural_not_principles": [
+    {
+      "id": <principle id>,
+      "reason": "<why this is a local step / solved value / bookkeeping item>"
+    }
+  ],
+  "unsupported_claims": [
+    {
+      "id": <principle id>,
+      "reason": "<what overreaches the trace>"
+    }
+  ],
+  "too_generic": [
+    {
+      "id": <principle id>,
+      "reason": "<why it is too broad to reconstruct the solution>"
+    }
+  ],
+  "missing_from_trace": [
+    {
+      "kind": "derived_relation | reduction | invariant | sign_domain | phase_structure | conservation | other",
+      "content": "<the missing decisive mechanism, stated concretely>"
+    }
+  ],
+  "foreign_contamination": [
+    {
+      "source": "candidate | latent_edit",
+      "content": "<foreign variable / transformation / concept>",
+      "reason": "<why it does not belong to this problem>"
+    }
+  ],
+  "priority_edits": [
+    "<imperative edit 1>",
+    "<imperative edit 2>",
+    "<imperative edit 3>"
+  ]
+}
+
+Additional constraints:
+- "priority_edits" must be concrete and local, such as:
+  - "merge 1 and 3"
+  - "delete 4"
+  - "tighten 2 to phase-based net-rate modeling"
+  - "add remaining-amount / pure-outflow principle"
+- Never suggest an edit using symbols, variables, or transformations not present in the problem or current principles.
+- If nothing is missing, return "missing_from_trace": [].
+- If nothing is contaminated, return "foreign_contamination": [].
+- Do not include markdown.
+- Do not include explanations outside JSON.
+
+If a criticism can be fixed by merging or tightening, prefer that over asking for a new principle.
+
+Now you will be given a real problem, solution traces, and candidate principles.
+
+PROBLEM:
+{{PROBLEM}}
+
+SOLUTION TRACES:
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+CANDIDATE PRINCIPLES:
+{{PRINCIPLES_BLOCK}}

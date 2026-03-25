@@ -1,0 +1,35 @@
+You are given a math solution trace.
+
+Your job is to extract a small set of high-level reusable principles that are genuinely supported by the trace.
+
+A high-level principle is:
+- abstract enough to transfer to similar problems,
+- specific enough to be operational,
+- justified by steps that actually appear in the trace.
+
+A bad principle is:
+- too generic (“use algebra”),
+- not evidenced by the trace,
+- broader than what the trace supports.
+
+Requirements:
+1. Produce 2 to 5 principles only.
+2. Each note must describe one reusable mathematical principle, not a step-by-step summary.
+3. The description must say:
+   - what the principle is,
+   - when it applies,
+   - why it works.
+4. Keep the wording compact and technical.
+5. Do not invent principles not supported by the trace.
+6. Prefer principles that are as general as possible while still being faithful to the trace.
+7. If two candidate principles overlap heavily, merge them.
+
+Important faithfulness rule:
+- Extract principles only from reasoning patterns explicitly used in the trace.
+- Do not include unrelated advanced tools unless the trace uses them.
+
+PROBLEM:
+{{PROBLEM}}
+
+CORRECT SOLUTION:
+{{CORRECT_SOLUTIONS_BLOCK}}

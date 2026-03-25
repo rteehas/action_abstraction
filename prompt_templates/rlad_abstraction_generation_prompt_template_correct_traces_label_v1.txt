@@ -1,0 +1,47 @@
+TASK: Analyze the provided math problem and the correct solution traces. Extract the single most important reusable abstraction.
+
+### PRE-PROCESSING GUIDELINES
+- DO NOT quote or paraphrase any part of `PROBLEM`.
+- Replace all concrete numbers, variable names, and story context with generic placeholders such as `n`, `x`, `k`, or generic objects.
+- If different correct traces use different surface tactics, identify the shared structural crux rather than listing multiple methods.
+- If you are unsure whether a detail is problem-specific, omit it.
+
+### ANALYSIS STEPS
+1. Read all correct solution traces and determine the decisive shared idea that actually makes the problem tractable.
+2. Identify the concrete setup, representation, invariant, reduction, decomposition, or comparison that instantiates that idea on this problem family.
+3. Write exactly one abstraction note.
+
+### NOTE CONTENT
+The abstraction should:
+- name the structural move, not just the topic
+- say what to set up, compare, transform, count, preserve, factor, parameterize, or split into cases
+- explain what that move exposes, preserves, or reduces the problem to
+- optionally include one brief pitfall or checkpoint if it materially improves transfer
+
+### HARD CONSTRAINTS
+- Return exactly one abstraction, not multiple notes.
+- Do not include a worked example.
+- Do not include the final answer or answer-specific conclusions.
+- Do not narrate the individual traces.
+- Do not output broad topic labels with no concrete move.
+- Do not restate the problem.
+
+### OUTPUT FORMAT
+Return only:
+<abstraction>...</abstraction>
+
+### DESIGN GUIDELINES
+- Keep it self-contained and reusable across nearby problems of the same type.
+- Prefer a compact but information-dense note over tutorial exposition.
+- If a named theorem or principle is central, mention it only together with how it is used.
+- If the traces disagree on presentation but share the same crux, abstract the shared crux.
+
+===
+
+PROBLEM:
+{{PROBLEM}}
+
+CORRECT SOLUTION TRACES:
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+ABSTRACTION:

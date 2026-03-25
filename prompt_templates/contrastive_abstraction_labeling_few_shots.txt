@@ -1,0 +1,50 @@
+Problem:
+Find the sum of all integer bases b>9 for which 17_b is a divisor of 97_b.
+
+Correct Solution Trace(s):
+[Correct Trace 1]
+Rewrite both base-b numerals in base 10, then turn the divisibility statement into an algebraic condition in b. The quotient condition becomes a congruence or divisibility relation involving linear expressions in b, so factor or bound that relation and check only integer bases greater than 9 that satisfy it.
+
+Incorrect Solution Trace(s):
+[Incorrect Trace 1]
+This looks like a generic base-conversion problem, so try plugging in a few bases and look for a pattern.
+
+[Incorrect Trace 2]
+Use a divisibility trick for decimal numbers ending in 7, then generalize it to any base.
+
+Abstraction:
+<abstraction>Translate each base-b numeral into an ordinary polynomial expression in b before doing anything else; the real problem is a divisibility constraint on those expressions, not a pattern-guessing exercise. Once the quantities are written in base 10 form, reduce the statement "one divides the other" to a congruence or factorization condition in b, then use the restriction b>9 to prune candidates cleanly. Be careful not to import decimal-specific divisibility rules or rely on trial-and-error over bases, because the useful structure comes from the algebraic dependence on b.</abstraction>
+
+Problem:
+Alex divides a disk into four quadrants with two perpendicular diameters intersecting at the center of the disk. He draws 25 more line segments through the disk, drawing each segment by selecting two points at random on the perimeter of the disk in different quadrants and connecting those two points. Find the expected number of regions into which these 27 line segments divide the disk.
+
+Correct Solution Trace(s):
+[Correct Trace 1]
+Add the random segments one at a time. Each new segment increases the region count by 1 plus the number of interior intersections it creates with earlier segments. By linearity of expectation, the expected total number of regions is the starting count from the diameters plus the expected contribution from each added segment, so the main task is to compute the probability that two random allowed segments intersect.
+
+Incorrect Solution Trace(s):
+[Incorrect Trace 1]
+Use the standard formula for the number of regions formed by n random chords in a circle.
+
+[Incorrect Trace 2]
+Because each new line usually crosses many others, approximate with the complete-graph chord formula and average at the end.
+
+Abstraction:
+<abstraction>For expected-region problems built from sequential insertions, track how much one new object changes the count rather than searching for a canned global formula. Here the right reduction is: a newly added segment creates 1 plus its number of intersections with earlier segments, so linearity of expectation turns the whole problem into counting expected pairwise intersections under the sampling rule. The important caution is that restricted sampling changes the intersection probability, so generic "random chord" formulas are unreliable unless they are rederived for the actual distribution.</abstraction>
+
+Problem:
+Let S be the set of positive divisors of 2025. A subset B of S is chosen uniformly at random from all subsets of S. Find the probability that B is nonempty and has least common multiple 2025.
+
+Correct Solution Trace(s):
+[Correct Trace 1]
+Prime-factorize 2025 and think in exponent vectors. A subset has LCM equal to the whole number exactly when, for each prime, some chosen divisor attains the maximum exponent. Count subsets that cover every required exponent level and divide by the total number of subsets.
+
+Incorrect Solution Trace(s):
+[Incorrect Trace 1]
+Use a memorized formula for the number of subsets with a given LCM.
+
+[Incorrect Trace 2]
+Treat the divisors independently and multiply local probabilities without checking whether the same divisor can satisfy several prime requirements at once.
+
+Abstraction:
+<abstraction>Recast an LCM-on-divisors question in terms of prime-exponent coverage: represent each divisor by its exponent vector, then characterize valid subsets by whether they collectively realize the top exponent required in each coordinate. This turns the problem into a structured counting argument, often via complementary counting or inclusion-exclusion on "missing a required exponent" events. Watch the dependency issue: one selected divisor can satisfy several prime requirements simultaneously, so naive multiplication of per-prime counts is usually wrong unless independence has been proved.</abstraction>

@@ -1,0 +1,39 @@
+You are writing a short teacher note for a weaker math solver.
+
+The solver will later see only the problem statement, not these traces. Read the traces now and write the single note that would most improve the solver's odds on this problem family.
+
+Use the good trace(s) to identify the decisive structural move and how it is instantiated here.
+Use the bad trace(s) only to identify the tempting wrong move, unsupported formula, or generic lens that the note should guard against.
+
+Write exactly 3 short sentences:
+- Sentence 1: state the concrete structural move first: the representation, reduction, parameterization, decomposition, invariant, construction, or case split to use.
+- Sentence 2: say what that move exposes, preserves, or reduces the problem to; name a general principle only if it clarifies why the move works on nearby problems.
+- Sentence 3: give one key checkpoint, constraint, or pitfall if it genuinely improves reliability; otherwise use it to sharpen when the move applies.
+
+What the note must not become:
+- a worked solution
+- a topic label with no decisive move
+- a numbered recipe
+- answer-specific arithmetic
+- filler about unrelated theory
+- unsupported formulas copied from bad traces
+
+Writing guidance:
+- If there is a tradeoff, prefer the decisive move over the broad principle name.
+- Make the move specific enough that a weaker solver could actually start from it.
+- Keep all 3 sentences compact and central.
+- Do not leave the abstraction empty; if unsure, give the most concrete supported move from the good trace(s).
+
+Return only:
+<abstraction>...</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Correct Solution Trace(s):
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+Incorrect Solution Trace(s):
+{{INCORRECT_SOLUTIONS_BLOCK}}
+
+Abstraction:

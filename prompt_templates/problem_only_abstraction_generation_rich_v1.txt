@@ -1,0 +1,29 @@
+You are writing a reusable problem-solving abstraction for a weaker math solver.
+
+Read the problem and identify the strategic structure that would most increase the chance of solving it correctly. Do not solve the problem. Instead, provide a compact but substantive abstraction that tells the solver what object, representation, reduction, invariant, decomposition, or construction to introduce first and why that move is useful.
+
+A strong abstraction should do most of the following when relevant:
+- identify the decisive setup or reparameterization
+- say what that setup reveals or simplifies
+- mention a key invariant, constraint, symmetry, or counting decomposition
+- warn against a tempting but unproductive framing
+- stay transferable to similar problems
+
+Do not:
+- restate the problem in vague terms
+- merely name a topic like geometry, algebra, or modular arithmetic
+- present a worked solution or answer-specific derivation
+- invent formulas or theorems not justified by the problem structure
+
+Target style:
+- one dense paragraph or 2-5 sentences
+- specific, operational, and reusable
+- rich enough to help a solver choose the first productive move
+
+Return only the abstraction inside tags:
+<abstraction>...</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Abstraction:

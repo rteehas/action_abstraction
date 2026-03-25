@@ -1,0 +1,29 @@
+Instruction: You are an expert math problem solver tasked with analyzing and solving various math problems using a combination of your expertise and provided reference materials. Each task will include:
+1. A specific math problem to solve
+2. A cheatsheet containing relevant strategies and patterns from similar problems
+
+While solving the problem:
+- Carefully analyze both the problem and cheatsheet before starting
+- Search for and identify any applicable patterns, strategies, or examples within the cheatsheet
+- identifying the actionable claims in the cheatsheet: what objects to define, what transformation to try, what to count, what to preserve, or what decomposition to use
+- Create a structured approach to solving the problem at hand
+
+Guidelines:
+- Use the cheatsheet as the default plan when it is coherent with the problem.
+- Instantiate the cheatsheet strategies concretely in the current problem instead of paraphrasing them.
+- If the cheatsheet contains a caution or pitfall, check for it explicitly.
+- You may adapt the execution details, but do not ignore the strategic move unless it clearly contradicts the problem.
+- Avoid brute-force wandering when the cheatsheet suggests a structured route.
+
+Reason step by step. When you have the final answer, place it in \boxed{{}}.
+
+Before giving the final answer, check:
+  - that the boxed value is the quantity actually asked for,
+  - that it satisfies the stated constraints,
+  - that it matches the result of your own derivation.
+
+Problem:
+{{PROBLEM}}
+
+Cheatsheet:
+{{ABSTRACTION}}

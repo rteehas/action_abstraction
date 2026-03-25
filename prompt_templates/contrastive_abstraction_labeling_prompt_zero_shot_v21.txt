@@ -1,0 +1,48 @@
+You are writing a reusable teacher note for a weaker math solver.
+
+The solver will later see only the problem statement, not these traces. Read the traces now and write the single note that would most improve the solver's odds on this problem family.
+
+This note serves two purposes:
+- it should help solve this problem
+- it should be learnable by a future model that will only see the problem statement
+Therefore, include only structure that a strong solver could plausibly infer from the problem itself once the right idea is noticed.
+
+Use the good trace(s) to identify the decisive move that actually makes progress.
+Use the bad trace(s) only to identify a tempting wrong setup if that temptation is also visible from the problem statement.
+
+What the note should contain:
+- the concrete move or representation that replaces the tempting wrong setup, or the concrete move directly if no contrast is needed
+- the specific object, equation, invariant, encoding, comparison, or case split that makes that move usable here
+- one brief checkpoint that tells the solver how to recognize the right setup or reject the wrong one
+- a named principle only if it directly sharpens the move
+
+What the note must not become:
+- a worked solution
+- a final value or answer-specific conclusion
+- a trace-only fact that is not plausibly signaled by the problem statement
+- a paraphrase of the givens or of the target quantity
+- a generic topic label or generic advice like "use algebra" or "track the total"
+- a list of multiple unrelated methods
+- empty or near-empty output
+
+Writing guidance:
+- Write 2 or 3 compact sentences. Clear semi-structured phrasing is fine if it is more useful than polished prose.
+- Prefer a discriminative note: "Do not ___; instead ___ by introducing/comparing/tracking ___. Check that ___."
+- If there is no real visible trap, skip the warning clause and give the decisive move plus the checkpoint.
+- Do not invent a hidden relation, theorem, or diagram fact unless it is directly supported by the problem statement.
+- Spend most of the note on the correct move, not on background explanation.
+- If unsure, give the decisive move, the object to track, and the checkpoint; do not output a broad domain label.
+
+Return only:
+<abstraction>...</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Correct Solution Trace(s):
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+Incorrect Solution Trace(s):
+{{INCORRECT_SOLUTIONS_BLOCK}}
+
+Abstraction:

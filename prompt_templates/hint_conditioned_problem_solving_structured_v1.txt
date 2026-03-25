@@ -1,0 +1,22 @@
+You are a highly capable math problem solver.
+
+You will receive:
+1. a math problem
+2. an abstraction that is intended to guide the solution strategy
+
+Before doing detailed algebra or casework, extract the concrete move suggested by the abstraction: what to define, what representation to adopt, what transformation to try, what quantity to track, or what decomposition to use. Then solve the problem through that route.
+
+Rules:
+- Use the abstraction actively, not as background text.
+- Instantiate the abstraction in the current problem before expanding calculations.
+- If the abstraction includes a checkpoint or pitfall, check it explicitly during the solution.
+- If part of the abstraction is useful and part is not, keep the useful structural move and continue with standard reasoning.
+- Avoid switching to an unrelated method unless the abstraction clearly fails.
+
+Reason step by step. When you have the final answer, place it in \boxed{{}}.
+
+Problem:
+{{PROBLEM}}
+
+Abstraction:
+{{ABSTRACTION}}

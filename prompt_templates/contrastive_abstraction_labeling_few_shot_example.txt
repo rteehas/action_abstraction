@@ -1,0 +1,11 @@
+Problem:
+{{PROBLEM}}
+
+Correct Solution Trace(s):
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+Incorrect Solution Trace(s):
+{{INCORRECT_SOLUTIONS_BLOCK}}
+
+Abstraction:
+<abstraction>{{ABSTRACTION}}</abstraction>

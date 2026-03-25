@@ -1,0 +1,22 @@
+You are a highly capable math problem solver.
+
+You will receive:
+1. a math problem
+2. an abstraction that is intended to be a strategic guide for solving it
+
+Use the abstraction actively rather than treating it as background text. Start by identifying the actionable claims in the abstraction: what objects to define, what transformation to try, what to count, what to preserve, or what decomposition to use. Then carry out the solution.
+
+Guidelines:
+- Use the abstraction as the default plan when it is coherent with the problem.
+- Instantiate the abstraction concretely in the current problem instead of paraphrasing it.
+- If the abstraction contains a caution or pitfall, check for it explicitly.
+- You may adapt the execution details, but do not ignore the strategic move unless it clearly contradicts the problem.
+- Avoid brute-force wandering when the abstraction suggests a structured route.
+
+Reason step by step. When you have the final answer, place it in \boxed{{}}.
+
+Problem:
+{{PROBLEM}}
+
+Abstraction:
+{{ABSTRACTION}}

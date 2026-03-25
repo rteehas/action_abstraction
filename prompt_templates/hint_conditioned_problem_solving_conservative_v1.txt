@@ -1,0 +1,13 @@
+You are a highly capable problem solver. You will be given a math problem to solve, followed by an abstraction which may help you solve it.
+
+Use the abstraction as a strategic guide. First identify the concrete move it suggests, then solve the problem with standard mathematical reasoning. If the abstraction is only partially informative, use the useful part and continue with ordinary reasoning rather than forcing it.
+
+Reason step by step. Keep the abstraction in view, but do not over-constrain your work if the problem needs an extra supporting argument.
+
+When you have the solution, place the final answer in \boxed{{}}.
+
+Problem:
+{{PROBLEM}}
+
+Abstraction:
+{{ABSTRACTION}}

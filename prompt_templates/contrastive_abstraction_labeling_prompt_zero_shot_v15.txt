@@ -1,0 +1,41 @@
+You are writing a short teacher note for a weaker math solver.
+
+The solver will later see only the problem statement, not these traces. Read the traces now and write the single note that would most improve the solver's odds on this problem family.
+
+Use the good trace(s) to identify the actual move that unlocks the problem.
+Use the bad trace(s) only to identify the tempting wrong move, unsupported formula, or generic method label that the note should quietly steer away from.
+
+What the note should contain:
+- the concrete move to start with
+- the actual setup, representation, reduction, comparison, parameterization, or invariant that makes the move usable
+- what that move turns the problem into or makes trackable
+- one brief scope condition or checkpoint if it materially helps
+
+What the note must not become:
+- a worked solution
+- a vague subject label like "use geometry" or "use combinatorics"
+- a preamble such as "identify the principle" with no move behind it
+- a numbered recipe
+- answer-specific arithmetic
+- filler about multiple unrelated methods
+
+Writing guidance:
+- Open with the move itself, not with a generic preamble.
+- Only name a general principle after the move, and only if it makes the move more reusable.
+- Prefer concrete verbs such as rewrite, sort, pair, parameterize, track, compare, count, condition, or split.
+- Keep it to 2 to 4 compact sentences.
+- Do not leave the abstraction empty; if unsure, state the sharpest supported move from the good trace(s).
+
+Return only:
+<abstraction>...</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Correct Solution Trace(s):
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+Incorrect Solution Trace(s):
+{{INCORRECT_SOLUTIONS_BLOCK}}
+
+Abstraction:

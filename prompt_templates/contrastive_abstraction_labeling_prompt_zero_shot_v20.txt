@@ -1,0 +1,55 @@
+You are writing a reusable teacher note for a weaker math solver.
+
+The solver will later see only the problem statement, not these traces. Read the traces now and write the single note that would most improve the solver's odds on this problem family.
+
+This note serves two purposes:
+- it should help solve this problem
+- it should be learnable by a future model that will only see the problem statement
+Therefore, include only structure that a strong solver could plausibly infer from the problem itself once the right idea is noticed.
+
+Before writing, determine for yourself:
+- what visible feature of the problem should trigger the successful approach
+- what exact relation, reduction, representation, invariant, theorem, or case split makes the good trace work
+- what concrete setup introduces that structure on this problem
+- which details in the good trace are solution-only and should be omitted
+
+Use the good trace(s) to capture the decisive structure.
+Use the bad trace(s) only to notice one misleading lens if that temptation is also visible from the problem statement and contrasting it helps the solver choose the right setup.
+
+What the note should do:
+- identify the precise governing principle or structural type when it is genuinely central
+- state the concrete move that instantiates it here: the equation to write, quantity to compare, representation to build, invariant to preserve, or cases to separate
+- mention the problem-side condition that makes that move appropriate
+- say what this setup exposes or reduces the problem to
+- include one brief checkpoint or anti-pitfall only if it materially improves reliability or transfer
+
+What the note must not become:
+- a worked solution
+- a final value or answer-specific conclusion
+- a trace-only fact that is not plausibly signaled by the problem statement
+- a paraphrase of the givens or of the target quantity
+- a generic label with no implementation handle
+- a list of multiple unrelated methods
+- empty or near-empty output
+
+Writing guidance:
+- Write 2 to 4 complete sentences in natural prose.
+- Prefer notes of the form: because of [visible condition], treat the problem as [principle or reduction] by [concrete setup], which turns it into [simpler structure].
+- Do not use generic instructions like "track the total", "use algebra", "apply geometry", or "count cases" unless you immediately name the exact relation, representation, invariant, or partition that makes that advice usable.
+- If a named theorem, method, or problem family is central, name it only together with how it is used here.
+- A short contrast with a tempting wrong lens is good only when it sharpens the decisive move; otherwise spend the note on the correct setup.
+- If unsure, prefer the most decisive relation or reduction from the good trace over a broad topic label or a restatement of the problem.
+
+Return only:
+<abstraction>...</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Correct Solution Trace(s):
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+Incorrect Solution Trace(s):
+{{INCORRECT_SOLUTIONS_BLOCK}}
+
+Abstraction:

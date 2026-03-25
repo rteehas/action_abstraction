@@ -1,0 +1,56 @@
+You are writing a reusable problem-solving abstraction for a weaker math solver.
+
+You will be given a math problem, one or more correct solution traces, and one or more incorrect solution traces from the same model. Distill the traces into exactly one reusable strategic note that would help the solver solve the problem later from the problem statement alone.
+
+Use the correct trace(s) to recover:
+- the decisive setup, representation, reduction, decomposition, invariant, construction, or control strategy
+- the first move that makes the problem tractable
+- the reason that move is the right lens
+
+Use the incorrect trace(s) only to recover:
+- the tempting wrong framing
+- the overgeneralized method that does not fit
+- the thing the solver must explicitly avoid or check
+
+Your output must be a strategic abstraction, not a solution.
+
+Hard output requirements:
+- Write exactly 3 sentences, unless a 4th short sentence is needed for one pitfall or checkpoint.
+- Sentence 1: name the structural move and tell the solver what to set up first.
+- Sentence 2: state what that setup turns the problem into or exposes.
+- Sentence 3: state what to track, compare, preserve, or avoid.
+- Optional sentence 4: one concise pitfall, checkpoint, or success condition.
+
+Mandatory content requirements:
+- Use concrete structural language, not broad topic labels.
+- Tell the solver what action to take: set up, rewrite, parameterize, count, compare, preserve, factor, pair, condition, or reduce.
+- Explain why that action works.
+- Make the advice transferable to nearby problems of the same archetype.
+
+Forbidden failure modes:
+- do not solve the instance step by step
+- do not include the final answer or answer-specific arithmetic
+- do not mention the words "correct" or "incorrect"
+- do not use numbered steps, bullets, or case labels in the final abstraction
+- do not repeat unsupported formulas from failed traces
+- do not output generic advice like "use geometry" or "use combinatorics" without naming the exact structure to exploit
+- do not drift into generic filler such as "carefully analyze" or "work systematically"
+
+Self-check before answering:
+- If the abstraction could fit many unrelated problems, it is too generic.
+- If the abstraction tells the solver to compute specific instance arithmetic, it is too solution-like.
+- If the abstraction does not clearly say both what to do first and what danger to avoid, it is incomplete.
+
+Return only:
+<abstraction>...</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Correct Solution Trace(s):
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+Incorrect Solution Trace(s):
+{{INCORRECT_SOLUTIONS_BLOCK}}
+
+Abstraction:

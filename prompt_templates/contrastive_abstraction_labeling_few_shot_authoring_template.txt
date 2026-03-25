@@ -1,0 +1,19 @@
+Problem:
+[Write a real problem statement here. Prefer a contest-style problem with a clear structural move.]
+
+Correct Solution Trace(s):
+[Correct Trace 1]
+[Two or three sentences. State the first decisive setup and what reduction it creates. Do not write a full solution.]
+
+[Correct Trace 2]
+[Optional. Give a second phrasing of the same key move or a nearby equivalent framing.]
+
+Incorrect Solution Trace(s):
+[Incorrect Trace 1]
+[One or two sentences. Plausible but wrong framing, formula misuse, false independence assumption, or pattern-guessing approach.]
+
+[Incorrect Trace 2]
+[One or two sentences. Different plausible but wrong framing.]
+
+Abstraction:
+<abstraction>[Sentence 1: name the structural move or representation. Sentence 2: say what that move turns the problem into. Sentence 3: state what to track, compare, or enforce. Optional sentence 4: name a pitfall, boundary condition, or checkpoint.]</abstraction>

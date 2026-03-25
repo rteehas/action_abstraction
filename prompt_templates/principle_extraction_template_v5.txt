@@ -1,0 +1,76 @@
+You are given a math problem and one or more solution traces.
+
+Your task is to extract a small set of high-level reusable principles that capture the real mathematical ideas used to solve the problem.
+
+A high-level principle should:
+- capture a genuine reasoning pattern used in the trace,
+- explain a transferable mathematical idea, not just a local calculation,
+- identify why that idea helps solve the problem,
+- remain faithful to the actual solution logic.
+
+A bad principle is:
+- a generic comment such as “use algebra” or “set up equations,”
+- a paraphrase of a local step with no reusable content,
+- a principle broader than the trace supports,
+- a polished restatement of an unsupported assumption,
+- a procedural detail that is not part of the solution’s real lever.
+
+Your goal is not to summarize the trace.
+Your goal is to recover the small number of concepts that do the actual work.
+
+Requirements:
+1. Produce 2 to 5 principles only.
+2. Each principle must describe one reusable mathematical idea, not a step-by-step summary.
+3. For each principle, state:
+   - what the principle is,
+   - when it applies,
+   - why it works,
+   - how it helps unlock this kind of problem.
+4. Prefer principles that capture the decisive reduction, transformation, invariant, structural observation, or simplifying relation.
+5. Distinguish between:
+   - CORE principles: ideas that are central to making the solution work,
+   - SUPPORT principles: useful setup ideas that enable the core ideas.
+6. At least one extracted principle should capture the main conceptual lever of the solution, if one exists.
+7. Merge overlapping principles aggressively.
+8. Keep wording compact, technical, and reusable.
+9. Do not include principles that are merely standard background unless they play a real role in the trace.
+10. Do not invent principles not supported by the trace.
+11. Avoid problem-specific calculations, details, or variables.
+
+Faithfulness and validity rules:
+- Extract principles only from reasoning patterns that are explicitly used or clearly instantiated in the trace.
+- Do not promote a guessed relation, diagram assumption, or unexplained equation into a principle unless the trace actually justifies it.
+- A principle must be supported not only by the trace text but by a valid connection between the problem data and the reasoning step.
+- If the trace contains routine manipulations, prefer the deeper idea that motivates them.
+- If the trace contains an error, avoid abstracting the erroneous step into a principle. Instead, extract only the sound ideas that still appear in the trace.
+
+Selection rules:
+- Prefer fewer, stronger principles over many shallow ones.
+- Prefer principles that would help solve a structurally similar problem.
+- Prefer principles that explain why the solution becomes easier after a certain step.
+- Do not split one mechanism into multiple near-duplicate principles.
+- Each principle should be as distinct as possible from the others.
+
+Before writing the principles, reason silently about:
+- the central concepts in the problem,
+- the decisive lever in the trace,
+- which steps are core versus merely procedural,
+- whether each candidate principle is justified or merely asserted.
+
+Output format:
+Return a numbered list.
+For each principle use exactly this structure:
+
+[CORE] or [SUPPORT]
+Title: <short name>
+What: <the principle>
+Background: <detailed description of the principle including definitions of technical terms, including any relevant formula, theorem, or lemma written in the its most general form>
+When: <when it applies>
+Why: <why it is valid>
+Role: <how it helps unlock this class of problems>
+
+PROBLEM:
+{{PROBLEM}}
+
+SOLUTION TRACES:
+{{CORRECT_SOLUTIONS_BLOCK}}

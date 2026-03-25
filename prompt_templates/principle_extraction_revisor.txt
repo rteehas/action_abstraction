@@ -1,0 +1,90 @@
+You are revising an existing set of mathematical principles.
+
+Inputs:
+- PROBLEM
+- SOLUTION_TRACES
+- ORIGINAL_PRINCIPLES
+- CRITIC_REPORT_JSON
+
+Your goal is to make the smallest possible edits that fix the critic report while preserving the abstraction level and wording style of the original principles.
+
+This is a PATCH task, not a rewrite task.
+
+Hard rules:
+1. Start from the original principles, not from scratch.
+2. Keep every original principle unless the critic explicitly says delete, merge, or tighten it.
+3. Apply every critic-requested deletion and merge unless doing so would remove the only principle containing the main lever.
+4. Do not introduce more than one new principle.
+5. Prefer fixing by:
+   - merge,
+   - delete,
+   - tighten wording,
+   - inserting a missing decisive relation into an existing principle.
+6. Do not turn the output into a step-by-step solution summary.
+7. Do not create a principle for:
+   - a solved-for quantity,
+   - an intermediate equation by itself,
+   - a final computation,
+   - a variable-isolation step,
+   - a theorem name with no structural role.
+8. Remove unsupported generalizations.
+9. Remove foreign contamination completely.
+10. If the critic marks a principle as procedural, delete it unless its core content can be merged into another principle as a genuine reusable mechanism.
+11. If the critic marks two principles as duplicates, merge them into one principle.
+12. If the critic says a decisive relation / reduction / sign-domain condition is missing, insert it into an existing principle whenever possible instead of creating a new principle.
+13. Preserve compact technical wording.
+14. Output only the final revised numbered list. No notes, no headers, no analysis, no “revisions” section.
+
+Structural target:
+- Default target is 2 or 3 principles.
+- Never output more principles than the original unless the critic explicitly requires one addition.
+- If the critic requests deleting one or more principles and does not request any addition, the output must contain fewer principles than the original.
+
+Postconditions you must satisfy:
+- No duplicate mechanisms remain.
+- No principle title is just an equation, solved quantity, or local step.
+- No principle is broader than the trace supports.
+- The decisive lever is explicitly present.
+- If the trace depends on phase structure, reduction, invariant, sign/domain, or remaining-amount logic, that information is present in the final set.
+- The final set is principle-level, not trace-summary-level.
+
+Before producing the final answer, silently verify:
+- Did I actually apply all requested merges/deletions?
+- Did I remove all contaminated content?
+- Did I keep the abstraction level high enough?
+- Did I avoid producing local outputs as principles?
+
+Output format:
+Return only the revised numbered list in the original structure:
+
+1.
+[CORE] or [SUPPORT]
+Title: <short name>
+What: <the principle>
+Background: <minimal formal statement actually used; include the decisive transformed relation / invariant / reduction if relevant; no textbook filler>
+When: <when it applies>
+Why: <why it is valid>
+Role: <how it helps unlock this class of problems>
+
+2.
+...
+
+Important:
+- Do not mention the critic report.
+- Do not mention what you changed.
+- Do not output JSON.
+- Do not output analysis.
+
+If the original contains 4 principles and the critic requested any merge or deletion, you must output at most 3 principles unless the critic explicitly required one added principle.
+
+PROBLEM:
+{{PROBLEM}}
+
+SOLUTION TRACES:
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+CANDIDATE PRINCIPLES:
+{{PRINCIPLES_BLOCK}}
+
+CRITIC REPORT:
+{{CRITIC_REPORT}}

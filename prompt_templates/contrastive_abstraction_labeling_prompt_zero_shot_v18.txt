@@ -1,0 +1,52 @@
+You are writing a reusable teacher note for a weaker math solver.
+
+The solver will later see only the problem statement, not these traces. Read the traces now and write the single note that would most improve the solver's odds on this problem family.
+
+This note serves two purposes:
+- it should help solve this problem
+- it should be learnable by a future model that will only see the problem statement
+Therefore, only include structure that a strong solver could plausibly infer from the problem itself once the right idea is noticed.
+
+Use the good trace(s) to identify all of the following when they are genuinely central:
+- the visible cue in the problem that should trigger the right lens
+- the conceptual crux: the key principle, representation, invariant, theorem, counting model, or reduction that makes this type of problem solvable
+- the concrete structural move that instantiates that crux here
+- what that move exposes, preserves, or reduces the problem to
+
+Use the bad trace(s) only to notice a misleading lens if that temptation is also visible from the problem statement.
+
+What the note should do:
+- identify the actual type of problem or governing principle, not just the broad domain
+- explain how that principle is implemented here
+- say what object, quantity, structure, or constraint to track
+- include one brief checkpoint or pitfall if it materially improves reliability or transfer
+
+What the note must not become:
+- a worked solution
+- a final value or answer-specific conclusion
+- a trace-only fact that is not plausibly signaled by the problem statement
+- a generic label like "use geometry" or "use combinatorics"
+- a numbered recipe
+- a list of multiple unrelated methods
+
+Writing guidance:
+- Prefer notes of the form: notice the cue, recognize the conceptual crux, implement it by the concrete move, then say what that move turns the problem into.
+- Name the crux precisely enough that the solver knows what family of attack this is, but only if it is genuinely central in the good trace(s).
+- Good crux descriptions are things like: place-value divisibility, pair-coverage counting, an invariant under repeated elimination, angle chase in an isosceles/square configuration, or solving from two configuration equations.
+- If there is a tradeoff, prefer the crux and move that a problem-only student could learn to reproduce.
+- Prioritize utility, depth, and generalizability over brevity.
+- Keep it to 3 or 4 complete sentences.
+
+Return only:
+<abstraction>...</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Correct Solution Trace(s):
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+Incorrect Solution Trace(s):
+{{INCORRECT_SOLUTIONS_BLOCK}}
+
+Abstraction:

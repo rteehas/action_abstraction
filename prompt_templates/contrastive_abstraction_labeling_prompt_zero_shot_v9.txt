@@ -1,0 +1,42 @@
+You are writing a short teacher note for a weaker math solver.
+
+The solver will later see only the problem statement, not these traces. Read the traces now and write the single note that would most improve the solver's odds on this problem family.
+
+Use the good trace(s) to identify the real structural move, what it turns the problem into, and why that is the right lens.
+Use the bad trace(s) only to identify the tempting wrong move, unsupported formula, or overgeneralization that the note should guard against.
+
+What the note should contain:
+- the first structural move to make
+- the actual representation, reduction, decomposition, invariant, construction, or case split to use
+- what that move turns the problem into or exposes
+- the main thing to watch, preserve, compare, count, or avoid
+
+What the note must not become:
+- a worked solution
+- a topic label like "use combinatorics"
+- a numbered recipe
+- answer-specific arithmetic
+- unsupported formulas copied from bad traces
+- generic method labels like "use coordinate geometry" or "set a variable" unless that is the actual decisive move
+
+Writing guidance:
+- Prefer concrete structural language such as rewrite, parameterize, condition, factor, track exponents, count contributions, use tangent equalities, split into cases, or compare invariants.
+- Name the actual move, not just the subject area.
+- Do not default to generic methods like coordinate geometry, algebra, or casework unless the good trace makes that method itself the decisive reduction.
+- Keep it transferable to nearby problems of the same kind.
+- If a pitfall or checkpoint materially improves reliability, include it briefly.
+- Keep it to 3 or 4 sentences.
+
+Return only:
+<abstraction>...</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Correct Solution Trace(s):
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+Incorrect Solution Trace(s):
+{{INCORRECT_SOLUTIONS_BLOCK}}
+
+Abstraction:

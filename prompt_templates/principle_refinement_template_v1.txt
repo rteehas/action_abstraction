@@ -1,0 +1,88 @@
+You are given:
+1. A math problem.
+2. One or more correct solution traces.
+3. An initial draft of sampled principles.
+
+Your job is to rewrite the draft into a better set of principles.
+
+The draft is often partly right, but too generic, too broad, too procedural, or not sharp enough.
+Use the trace(s) to repair it.
+Do not trust the draft blindly.
+
+Your goal is to produce principles that:
+- capture the actual conceptual lever of the solution,
+- name the sharper framing of the problem,
+- are more reusable and deeper than the initial draft,
+- remain faithful to what the trace really uses.
+
+Common failure modes in the draft:
+- naming a broad tool instead of the decisive move
+- giving a topic label instead of the exact reduction, invariant, cancellation, extremal idea, or transformation
+- listing several shallow setup ideas instead of the one mechanism that makes the problem easy
+- describing a valid but less sharp method than the one actually used in the trace
+- missing the sign, branch, endpoint, telescoping, factorization, or self-reference step that truly closes the problem
+- keeping multiple overlapping principles that should be merged
+- producing principles that are only shallowly reusable
+
+Refinement rules:
+1. Produce 2 to 4 principles only.
+2. At least one principle must be [CORE].
+3. The main [CORE] principle should capture the decisive reduction, transformation, invariant, cancellation, extremal bound, structural factorization, telescoping pattern, or self-referential constraint that does the real work.
+4. If the draft names a broad method, replace it with the sharper move actually used in the trace.
+5. If a support idea can be removed without losing the crux, drop it.
+6. Merge overlapping principles aggressively.
+7. Prefer the exact simplification the move creates over the broad subject area it belongs to.
+8. If the trace relies on a sign choice, branch choice, endpoint forcing, telescoping pattern, or exact factorization, make sure the refined principles capture that.
+9. Do not invent ideas not supported by the trace.
+10. Keep wording compact, technical, and reusable.
+
+What sharpening should do:
+- move from a broad method label to the exact move that makes the problem easier,
+- say what new object, equation, invariant, factorization, interval bound, or reduced search space that move creates,
+- explain why that reduction is the real lever rather than just one possible method,
+- keep only the part of the draft that survives this sharper restatement.
+
+A sharpened principle should usually answer all three questions:
+- What exact move changes the problem?
+- What does that move reduce the problem to?
+- What checkpoint tells you that you are using the sharp version rather than a broader but weaker method?
+
+In practice, sharpening usually means:
+- replacing a subject-area label with the exact transformation,
+- replacing a multi-step procedure with the single structural observation that makes the later steps routine,
+- replacing broad casework with the obstruction, threshold, or extremal fact that kills most cases at once,
+- replacing generic algebra with the specific substitution chain, factorization, cancellation, or saturation argument that closes the problem,
+- deleting support principles that are consequences of the main lever rather than independent ideas.
+
+How to sharpen a weak draft principle:
+- Replace "use generating functions" with the exact recurrence-aligned cancellation or transformed series if that is what the trace really exploits.
+- Replace "use recurrence" with telescoping or direct multiplicative structure if the trace collapses that way.
+- Replace "use trigonometric identities" with the exact equality, interval bound, sign decision, or saturation argument if that is the real lever.
+- Replace "use casework" with the threshold, extremal, or divisibility obstruction if that is what really rules cases out.
+- Replace "analyze coefficients" with the concrete substitution chain or evaluation identity if that is what the trace uses.
+
+Before writing the refined principles, reason silently about:
+- what exact step makes naive methods unnecessary,
+- what smaller object, equation, or structure the problem reduces to,
+- which draft principles should be kept, sharpened, merged, or dropped,
+- what checkpoint distinguishes the sharp formulation from a broader but weaker one.
+
+Output format:
+Return a numbered list.
+For each principle use exactly this structure:
+
+[CORE] or [SUPPORT]
+Title: <short name>
+What: <the refined principle>
+When: <when it applies>
+Why: <why it is valid>
+Role: <how it helps unlock this class of problems>
+
+PROBLEM:
+{{PROBLEM}}
+
+CORRECT SOLUTION TRACES:
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+INITIAL PRINCIPLES:
+{{INITIAL_PRINCIPLES}}

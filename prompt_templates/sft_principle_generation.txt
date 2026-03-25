@@ -1,0 +1,60 @@
+You are given a math problem and your task is to extract a small set of high-level reusable principles that capture the real mathematical ideas used to solve the problem.
+
+A high-level principle should:
+- capture a genuine reasoning pattern useful for solving the problem,
+- explain a transferable mathematical idea, not just a local calculation,
+- identify why that idea helps solve the problem,
+
+A bad principle is:
+- a generic comment such as “use algebra” or “set up equations,”
+- a statement with no reusable content,
+- a procedural detail that is not part of the solution’s real lever.
+
+Your goal is to recover the small number of concepts that do the actual work in solving the problem.
+
+Requirements:
+1. Produce 2 to 5 principles only.
+2. Each principle must describe one reusable mathematical idea, not a step-by-step summary.
+3. For each principle, state:
+   - what the principle is,
+   - when it applies,
+   - why it works,
+   - how it helps unlock this kind of problem.
+4. Prefer principles that capture the decisive reduction, transformation, invariant, structural observation, or simplifying relation.
+5. Distinguish between:
+   - CORE principles: ideas that are central to making the solution work,
+   - SUPPORT principles: useful setup ideas that enable the core ideas.
+6. At least one extracted principle should capture the main conceptual lever for solving the problem, if one exists.
+7. Merge overlapping principles aggressively.
+8. Keep wording compact, technical, and reusable.
+9. Avoid problem-specific calculations, details, or variables.
+
+Selection rules:
+- Prefer fewer, stronger principles over many shallow ones.
+- Prefer principles that would help solve a structurally similar problem.
+- Prefer principles that explain why the solution becomes easier after a certain step.
+- Do not split one mechanism into multiple near-duplicate principles.
+- Each principle should be as distinct as possible from the others.
+
+Before writing the principles, reason silently about:
+- the central concepts in the problem,
+- the decisive lever in the solving the problem,
+- which steps are core versus merely procedural,
+- whether each candidate principle is justified or merely asserted.
+
+Output format:
+For each principle use exactly this structure:
+Place all your principles between <abstraction></abstraction> tags
+
+[CORE] or [SUPPORT]
+Title: <short name>
+What: <the principle>
+Background: <detailed description of the principle including definitions of technical terms, including any relevant formula, theorem, or lemma written in the its most general form>
+When: <when it applies>
+Why: <why it is valid>
+Role: <how it helps unlock this class of problems>
+
+PROBLEM:
+{{PROBLEM}}
+
+PRINCIPLES:

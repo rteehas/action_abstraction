@@ -1,0 +1,51 @@
+You are writing a reusable problem-solving abstraction for a weaker math solver.
+
+You will be given a math problem, one or more correct solution traces, and one or more incorrect solution traces from the same model. Your job is to distill the maximum amount of reusable strategic information that would help the solver get this problem right when it only sees the problem statement later.
+
+Use the correct trace(s) to identify:
+- the decisive representation, reduction, decomposition, invariant, construction, or control strategy
+- the first move that makes the rest of the problem tractable
+- the reason that move works
+
+Use the incorrect trace(s) only to identify:
+- seductive but wrong framings
+- overgeneralized formulas or canned methods that do not fit
+- places where a solver is likely to drift unless the abstraction guards against it
+
+Write exactly one abstraction. It should be richer than a terse hint, but it must remain a reusable strategic note rather than a worked solution.
+
+Mandatory qualities:
+- Name the actual structural move, not just the subject area.
+- Tell the solver what to set up, transform, compare, count, preserve, or eliminate.
+- Explain what this setup exposes or why it is the right lens.
+- Include at least one concise success condition, checkpoint, or pitfall when that materially improves reliability.
+- Keep the advice transferable to nearby problems of the same archetype.
+
+Hard constraints:
+- Do not solve the instance step by step.
+- Do not include the final answer or answer-specific arithmetic.
+- Do not mention the words "correct" or "incorrect" in the final abstraction.
+- Do not repeat unsupported formulas from failed traces.
+- Do not output generic advice like "use combinatorics" unless you specify the exact structure to exploit.
+
+Preferred shape of the abstraction:
+- Sentence 1: the main setup or structural lens.
+- Sentence 2: what that setup turns the problem into.
+- Sentence 3: the key thing to track, compare, or avoid.
+- Optional sentence 4: a pitfall, checkpoint, or execution note.
+
+Return only:
+<abstraction>...</abstraction>
+
+{{FEW_SHOT_EXAMPLES}}
+
+Problem:
+{{PROBLEM}}
+
+Correct Solution Trace(s):
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+Incorrect Solution Trace(s):
+{{INCORRECT_SOLUTIONS_BLOCK}}
+
+Abstraction:

@@ -1,0 +1,54 @@
+You are writing a reusable teacher note for a weaker math solver.
+
+The solver will later see only the problem statement, not these traces. Read the traces now and write the single note that would most improve the solver's odds on this problem family.
+
+This note serves two purposes:
+- it should help solve this problem
+- it should be learnable by a future model that will only see the problem statement
+Therefore, include only structure that a strong solver could plausibly infer from the problem itself once the right idea is noticed.
+
+Before writing, determine for yourself:
+- what visible feature of the problem should trigger the successful approach
+- what exact principle, reduction, representation, invariant, or theorem makes the good trace work
+- how that principle is instantiated on this problem
+- which details in the good trace are solution-only and should be omitted
+
+Use the good trace(s) to capture the decisive structure.
+Use the bad trace(s) only to notice a misleading lens if that temptation is also visible from the problem statement.
+
+What the note should do:
+- identify the precise governing principle or problem type when it is genuinely central
+- tie that principle to a concrete move: what to rewrite, compare, track, count, parameterize, factor, or split into cases
+- mention the problem-side condition that makes this move appropriate
+- say what the move exposes, preserves, or reduces the problem to
+- include one brief checkpoint or pitfall only if it materially improves reliability or transfer
+
+What the note must not become:
+- a worked solution
+- a final value or answer-specific conclusion
+- a trace-only fact that is not plausibly signaled by the problem statement
+- a generic label with no implementation handle
+- a restatement of the problem
+- a list of multiple unrelated methods
+- empty or near-empty output
+
+Writing guidance:
+- Write 3 or 4 complete sentences in natural prose.
+- Do not use slot labels or canned meta-phrases such as "the right lens is", "the conceptual crux is", or "cue/move/scope".
+- If a named theorem, method, or problem family is central, name it, but only together with how it is used here.
+- If there is a tradeoff, prefer the most decisive structure that a problem-only student could plausibly learn to reproduce.
+- If unsure, give the most grounded decisive move and the quantity or structure to track.
+
+Return only:
+<abstraction>...</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Correct Solution Trace(s):
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+Incorrect Solution Trace(s):
+{{INCORRECT_SOLUTIONS_BLOCK}}
+
+Abstraction:

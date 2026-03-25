@@ -1,0 +1,49 @@
+You are writing a reusable teacher note for a weaker math solver.
+
+The solver will later see only the problem statement, not these traces. Read the traces now and write the single note that would most improve the solver's odds on this problem family.
+
+This note serves two purposes:
+- it should help solve this problem
+- it should be learnable by a future model that will only see the problem statement
+Therefore, only include structure that a strong solver could plausibly infer from the problem itself after noticing the right pattern.
+
+Use the good trace(s) to identify:
+- the visible cue in the problem that should make the solver try the right lens
+- the concrete structural move to make
+- what that move exposes, preserves, or reduces the problem to
+Use the bad trace(s) only to notice a misleading lens if that trap is also visible from the problem statement.
+
+What the note should contain:
+- one problem-side cue or trigger
+- one concrete structural move
+- one sentence on what the move exposes or reduces the problem to
+- one brief scope condition or checkpoint if it materially helps transfer
+
+What the note must not become:
+- a worked solution
+- a final value or answer-specific conclusion
+- a trace-only fact that is not signaled by the problem statement
+- a generic topic label
+- a numbered recipe
+- filler about unrelated methods
+
+Writing guidance:
+- Use complete sentences, not bullet fragments.
+- If there is a tradeoff, prefer the cue and move that a problem-only student could reuse.
+- You may name a general principle, but only after stating the cue and the move.
+- Prioritize utility and generalizability over brevity.
+- Keep it to 3 or 4 sentences.
+
+Return only:
+<abstraction>...</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Correct Solution Trace(s):
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+Incorrect Solution Trace(s):
+{{INCORRECT_SOLUTIONS_BLOCK}}
+
+Abstraction:

@@ -1,0 +1,29 @@
+You are writing a reusable problem-solving abstraction for a weaker math solver.
+
+Read the math problem and produce exactly one abstraction that would help solve it later from the problem statement alone.
+
+Mandatory qualities:
+- Name the actual structural move, not just the subject area.
+- Tell the solver what to set up, transform, compare, count, preserve, or eliminate.
+- Explain what that setup exposes or why it is the right lens.
+- Include at least one concise checkpoint, pitfall, or success condition when that materially improves reliability.
+
+Hard constraints:
+- Do not solve the instance step by step.
+- Do not include the final answer or answer-specific arithmetic.
+- Do not turn the abstraction into a numbered procedure.
+- Do not give generic advice unless you specify the exact structure to exploit.
+
+Preferred shape:
+- Sentence 1: the main setup or structural lens.
+- Sentence 2: what that setup turns the problem into.
+- Sentence 3: the key thing to track, compare, or avoid.
+- Optional sentence 4: a checkpoint, pitfall, or execution note.
+
+Return only:
+<abstraction>...</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Abstraction:

@@ -1,0 +1,48 @@
+TASK: Analyze the provided math problem and provided correct solution traces. Extract key problem-solving insights.
+
+### PRE-PROCESSING GUIDELINES
+- DO NOT quote or paraphrase any part of `PROBLEM`.  
+- Replace all concrete numbers, variable names, and story context with generic placeholders (e.g. n, x, k). Notes that reference any numerical value or proper noun from the input will be rejected.
+- If you are unsure whether a detail is problem-specific, omit it.
+
+### ANALYSIS STEPS
+1. Domain Identification: Clearly classify the problem into exactly one mathematical domain: [Algebra, Number Theory, Geometry, Combinatorics, Inequalities, Logic, Calculus, Other].
+2. Insight Extraction:
+   - List exactly **five** foundational principles for solving this problem. You should produce **five** notes, one for each principle.
+   - Abstract away uncritical specifics such as variable names, numeric values, and story fluff.
+   - Consider alternative problem-solving perspectives (algebraic, geometric, logical, analytical)
+3. Form each note using the template below.
+   - **Description** (<=3 sentences): what the idea is, when and why to use it, why it works. Include any general formula or lemma in the most general form possible.
+   - **Example** (<=6 sentences): a worked example that touches on everything in the description. Use a simplified yet representative example, not necessarily the one from the problem description.
+   - Optionally, include **Heuristics** or **Pitfalls** associated with with the application's idea within the note.
+   - Focus on methodologies and general principles rather than specific calculations
+   - Ensure each hint is applicable to at least 80% of similar problems
+
+### OUTPUT FORMAT
+Produce **five** notes, in the format below:
+<note1>
+<description>...</description>
+<example>...</example>
+</note1>
+<note2>
+<description>...</description>
+<example>...</example>
+</note2>
+...
+
+### DESIGN GUIDELINES
+- Clarity: Use clear, unambiguous language and proper sentence structure.
+- Atomic and unambiguous: Each note solves one general recognizable sub-problem.
+- Self-contained: All information needed to understand the core idea and its basic application should be within the note.
+- Generalizability: Avoid problem-specific calculations, details, or variables.
+- Transferability: Each note is applicable to an entire class of similar problems.
+- Distinctness: Each note should touch on a distinct principle from the others.
+
+===
+
+PROBLEM: 
+{problem_description}
+
+CORRECT SOLUTIONS:
+
+{correct_solutions}

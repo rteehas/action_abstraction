@@ -1,0 +1,119 @@
+You are given a math problem and one or more solution traces.
+
+Your task is to extract a small set of high-level reusable principles that capture the real mathematical ideas doing the work in the solution.
+
+Your goal is not to summarize the trace.
+Your goal is to recover the few concepts and mechanisms that actually make the solution succeed.
+
+A strong principle:
+- is genuinely supported by the trace,
+- captures a transferable mathematical idea,
+- identifies a real mechanism used in the reasoning,
+- explains why that mechanism is effective,
+- would help solve a structurally similar problem.
+
+A weak principle:
+- is generic filler such as “use algebra,” “use the distance formula,” or “set up equations,”
+- merely paraphrases a local step,
+- describes routine background machinery rather than the solution’s hinge,
+- is broader than the trace supports,
+- turns an unsupported assumption, guessed equation, or diagram interpretation into a principle,
+- duplicates another principle with slightly different wording.
+
+What to extract:
+Extract only the principles that explain the solution’s conceptual backbone:
+- the decisive reduction,
+- the key transformation,
+- the critical representation,
+- the invariant or conserved quantity,
+- the “same object computed two ways” move,
+- the structural observation that collapses the difficulty,
+- the relation that converts the problem into solvable equations.
+
+Do not extract:
+- trivial background facts unless they are the actual trick,
+- standard tools used only mechanically,
+- notational choices,
+- low-level arithmetic manipulations,
+- duplicate setup observations.
+
+Requirements:
+1. Produce 2 to 4 principles only.
+2. Prefer fewer, stronger principles over many shallow ones.
+3. At least one principle must capture the main conceptual lever of the solution, if one exists.
+4. Each principle must state:
+   - What: the principle itself,
+   - When: when it applies,
+   - Why: why it is valid,
+   - Role: how it helps unlock this class of problems.
+5. Label each principle as either:
+   - [CORE] if it captures a central mechanism,
+   - [SUPPORT] if it is enabling but not decisive.
+6. Merge overlapping principles aggressively.
+7. Keep wording compact, technical, and reusable.
+8. Do not include anything not justified by the trace.
+
+Faithfulness and validity rules:
+- Extract only reasoning patterns that are explicitly used or clearly instantiated in the trace.
+- A principle must be justified by the trace as a valid step, not merely mentioned or assumed.
+- Do not promote a guessed relation, arbitrary parameter choice, unexplained special case, or unsupported modeling assumption into a principle.
+- If a step in the trace is unjustified, erroneous, or ad hoc, do not abstract it into a principle.
+- If the trace mixes sound ideas with flawed execution, extract only the sound ideas.
+
+Core-mechanism rule:
+For each candidate principle, ask:
+1. Is this actually used in the trace?
+2. Is it mathematically valid as stated?
+3. Does it explain why the solution becomes easier?
+4. Would losing this idea significantly damage the solution?
+5. Is this more than routine background?
+
+Keep the principle only if the answer is “yes” to at least 4 of the 5 questions.
+A principle that fails question 3 or 4 should usually be discarded or downgraded to [SUPPORT].
+
+Anti-genericity rule:
+Reject any candidate principle that would still sound equally plausible if the trace’s specific mathematical mechanism were removed.
+
+Examples of principles that are usually too weak unless they are truly central:
+- “Use coordinate geometry”
+- “Use the distance formula”
+- “Solve a system of equations”
+- “Use algebraic manipulation”
+- “Parallel lines have proportional vectors”
+
+These are acceptable only if the trace makes that idea the actual hinge of the solution rather than routine setup.
+
+Priority rule:
+If forced to choose, prefer one principle that captures the decisive lever over several principles that describe setup, notation, or routine algebra.
+
+Candidate filter:
+Discard any candidate principle if any of the following is true:
+- it is only a local computation,
+- it is just a standard tool with no special role,
+- it depends on an unjustified assumption,
+- it overlaps heavily with a stronger candidate,
+- it does not explain the solution’s main simplification.
+
+Before writing the final answer, reason silently about:
+- the central concepts in the problem,
+- the decisive lever in the trace,
+- which steps are core versus merely procedural,
+- whether each candidate principle is genuinely justified,
+- whether each principle would teach a model something reusable.
+
+Output format:
+Return a numbered list.
+For each principle use exactly this structure:
+
+[CORE] or [SUPPORT]
+Title: <short name>
+What: <the reusable mathematical principle>
+When: <when it applies>
+Why: <why it is valid>
+Role: <how it helps unlock similar problems>
+
+PROBLEM:
+{{PROBLEM}}
+
+SOLUTION TRACES:
+{{CORRECT_SOLUTIONS_BLOCK}}

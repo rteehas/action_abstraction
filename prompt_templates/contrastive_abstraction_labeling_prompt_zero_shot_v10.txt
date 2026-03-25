@@ -1,0 +1,40 @@
+You are writing a short teacher note for a weaker math solver.
+
+The solver will later see only the problem statement, not these traces. Read the traces now and write the single note that would most improve the solver's odds on this problem family.
+
+Use the good trace(s) to identify the real structural move, the concrete setup or quantity that makes that move usable, and the main pitfall that the note should guard against.
+Use the bad trace(s) only to identify the tempting wrong move, unsupported formula, or overgeneralization that the note should guard against.
+
+What the note should contain:
+- the first structural move to make
+- the key setup, quantity, case split, invariant, parameter, or comparison that makes the move executable
+- the main thing to watch, preserve, compare, count, or avoid
+
+What the note must not become:
+- a worked solution
+- a topic label like "use combinatorics"
+- a list of calculations for this specific problem
+- answer-specific arithmetic
+- unsupported formulas copied from bad traces
+- a generic slogan that never names what to set up or track
+
+Writing guidance:
+- Prefer concrete structural language such as rewrite, parameterize, condition, factor, track exponents, count contributions, use tangent equalities, split into cases, compare invariants, sort the sides, or express the total in two ways.
+- If the decisive move is hard to name cleanly, include one or two additional reusable cues that would let a weaker solver carry it out.
+- Keep it transferable to nearby problems of the same kind.
+- If a pitfall or checkpoint materially improves reliability, include it briefly.
+- Keep it to 3 or 4 sentences.
+
+Return only:
+<abstraction>...</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Correct Solution Trace(s):
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+Incorrect Solution Trace(s):
+{{INCORRECT_SOLUTIONS_BLOCK}}
+
+Abstraction:

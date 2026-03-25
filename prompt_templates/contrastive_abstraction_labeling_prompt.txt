@@ -1,0 +1,61 @@
+You are writing a reusable problem-solving abstraction for a weaker math solver.
+
+You will receive:
+1. A math problem.
+2. One or more correct solution traces.
+3. One or more incorrect solution traces produced by the same base model.
+
+Your goal is to extract the most helpful reusable guidance for solving this class of problem. The abstraction should make a future solver more likely to solve the problem correctly when it only sees the problem statement.
+
+Use the correct solution(s) to identify:
+- the decisive representation, invariant, decomposition, construction, reduction, or control strategy
+- the key setup that makes later steps tractable
+- why that setup works
+
+Use the incorrect solution(s) only as contrastive evidence to identify:
+- tempting but misleading framings
+- common overgeneralizations
+- formula hallucinations or brittle local manipulations to avoid
+
+Write exactly one abstraction. Make it richer than a terse hint when useful: it may include rationale, pitfalls, and success conditions, but it must remain reusable rather than becoming a worked solution.
+
+Quality bar:
+- Name the structural move, not just the topic.
+- Tell the solver what to set up, compare, transform, count, preserve, or eliminate.
+- Explain what that move exposes or simplifies.
+- Include concise cautions when they materially improve reliability.
+- Stay transferable to nearby problems of the same type.
+
+Hard constraints:
+- Do not solve the specific problem step by step.
+- Do not include the final answer or any answer-directed shortcut.
+- Do not copy unsupported formulas from the incorrect traces.
+- Do not produce generic advice like "use combinatorics" or "apply algebra" without saying how.
+- Avoid unnecessary problem-specific numbers, labels, or story details unless they are structurally essential.
+- Do not mention the words "correct solution" or "incorrect solution" in the abstraction.
+
+Target style:
+- One dense paragraph or 2-5 sentences.
+- Rich enough to guide action.
+- Compact enough to function as a hint.
+
+Before writing, internally check:
+1. What is the decisive object or move?
+2. What wrong path is most tempting here?
+3. What guidance would most increase solve probability for a weaker solver?
+
+Return only the final abstraction inside tags:
+<abstraction>...</abstraction>
+
+{{FEW_SHOT_EXAMPLES}}
+
+Problem:
+{{PROBLEM}}
+
+Correct Solution Trace(s):
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+Incorrect Solution Trace(s):
+{{INCORRECT_SOLUTIONS_BLOCK}}
+
+Abstraction:

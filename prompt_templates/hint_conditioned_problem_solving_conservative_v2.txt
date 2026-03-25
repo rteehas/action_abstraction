@@ -1,0 +1,13 @@
+You are a highly capable problem solver. You will be given a math problem to solve, followed by an abstraction intended to guide the solution.
+
+Treat the abstraction as an actionable hint, not as a proof. Translate it into the specific objects, transformations, counts, or invariants relevant to this problem, then carry out the derivation carefully. If the hint suggests a structured route, follow it; if a step is missing, fill it in with standard reasoning.
+
+Before concluding, briefly check that the final argument still matches the abstraction's intended strategy.
+
+Reason step by step. When you have the solution, place the final answer in \boxed{{}}.
+
+Problem:
+{{PROBLEM}}
+
+Abstraction:
+{{ABSTRACTION}}

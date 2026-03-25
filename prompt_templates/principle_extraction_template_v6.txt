@@ -1,0 +1,94 @@
+You are given a math problem and one or more solution traces.
+
+Your task is to extract a very small set of high-value reusable principles that capture the actual mathematical levers used in the trace.
+
+A good principle:
+- captures a distinct reasoning mechanism that does real work,
+- stays faithful to the trace,
+- would help reconstruct the solution on a similar problem,
+- includes the decisive relation / invariant / transformation / sign condition if one is used.
+
+A bad principle is:
+- a generic label like “use algebra,” “set up equations,” “simplify,” or “apply identities,”
+- a duplicate or near-duplicate of another principle,
+- a theorem name with textbook background but no specific role,
+- a local calculation with no reusable structure,
+- a claim broader than what the trace justifies,
+- an unsupported geometric assertion elevated into a principle.
+
+Your goal is not to summarize the trace.
+Your goal is to isolate the few mechanisms that make the solution work.
+
+Hard requirements:
+1. Produce 1 to 4 principles only. Prefer fewer.
+2. Each principle must be genuinely distinct. If two candidates share the same mathematical lever, merge them.
+3. At least one principle must capture the decisive conceptual lever.
+4. If the trace relies on a derived relation, transformed expression, invariant, symmetry, or constraint, include that explicitly.
+5. If the trace relies on a sign choice, quadrant, monotonicity, parity, branch choice, or endpoint/domain restriction, include that explicitly.
+6. Do not split one pipeline into multiple fake principles such as:
+   - “set up an equation,”
+   - “solve the equation,”
+   - “substitute back,”
+   - “simplify the result.”
+   Those are procedural fragments, not distinct principles.
+7. Do not include standard background unless it is actively used as a lever.
+8. Do not invent principles not supported by the trace.
+9. Do not promote an unproved diagram fact, sphere-center fact, similarity claim, or geometric shortcut into a principle unless the trace explicitly derives it or directly invokes it in a justified way.
+10. Prefer principles that expose the state-changing move:
+   - the reduction target,
+   - the invariant,
+   - the factorization,
+   - the symmetric pairing,
+   - the counting decomposition,
+   - the optimization constraint,
+   - the sign-flip or cancellation,
+   - the primewise decoupling,
+   - the contribution argument,
+   - the coordinate/equidistance setup,
+   - etc.
+
+Selection rules:
+- Prefer fewer, sharper principles over many shallow ones.
+- Prefer principles that would let a strong student reproduce the key move in 1–2 lines.
+- Prefer the mechanism that explains why the problem becomes easy after a certain step.
+- If a theorem is used, name the theorem only if the trace truly depends on it; otherwise describe the operative idea.
+- If a named theorem is used, explain its role in this problem class, not just its statement.
+- Avoid “taxonomy” output: do not produce three different ways of saying the same thing.
+
+Before writing, reason silently about:
+- What is the one move that makes the problem tractable?
+- What derived relation or reformulation changes the problem’s form?
+- Which conditions are essential for legality or sign?
+- Which candidate principles are duplicates?
+- Which candidate claims are broader than the trace supports?
+
+Output format:
+Return a numbered list.
+For each principle use exactly this structure:
+
+[CORE] or [SUPPORT]
+Title: <short technical name>
+What: <one distinct reusable mechanism>
+Background: <only the minimal formal statement actually used; include any decisive derived relation, transformed form, invariant, or theorem statement if relevant, ensuring that it is written in its most general form; no textbook filler>
+When: <the structural conditions under which this mechanism applies>
+Why: <why it is valid and why it is the right move here>
+Role: <how it unlocks this class of problems>
+
+Compression rules:
+- Keep wording compact and technical.
+- Background must be specific, not encyclopedic.
+- Do not restate the whole trace.
+- Do not use problem-specific variable names unless they are necessary to state the decisive relation.
+- If a principle cannot be stated without becoming generic, omit it.
+
+Quality check before finalizing:
+- Would removing any principle lose a genuinely different lever? If not, remove it.
+- Does each principle mention the actual mathematical object that does the work?
+- Is any principle just a renamed local step? If yes, remove or merge it.
+- Is any principle unsupported by the trace? If yes, remove it.
+
+PROBLEM:
+{{PROBLEM}}
+
+SOLUTION TRACES:
+{{CORRECT_SOLUTIONS_BLOCK}}

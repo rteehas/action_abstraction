@@ -1,0 +1,41 @@
+You are choosing the best set of extracted mathematical principles to fit a problem and set of one or more solution traces.
+
+Input:
+- problem
+- correct solution traces
+- Version A Principles
+- Version B Principles
+
+Choose between Version A and Version B.
+
+Pick the better set of mathematical principles using this priority order:
+1. Faithful to the trace
+2. Principle-level abstraction, not step summary
+3. Distinctness / low duplication
+4. Reusability on structurally similar problems
+5. Compactness
+
+Reject any version containing:
+- unsupported universal claims,
+- procedural labels pretending to be principles,
+- more fragmentation than the other version.
+
+Return only JSON:
+{
+  "winner": "A | B",
+  "reason": ["...", "...", "..."]
+}
+
+Do not include prose before or after the JSON.
+
+PROBLEM:
+{{PROBLEM}}
+
+SOLUTION TRACES:
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+VERSION A PRINCIPLES:
+{{VERSION_A}}
+
+VERSION B PRINCIPLES:
+{{VERSION_B}}

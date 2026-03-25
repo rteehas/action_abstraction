@@ -1,0 +1,54 @@
+You are writing the one reusable strategic note that separates the successful solution traces from the failed ones.
+
+You will be given:
+- a math problem
+- one or more successful solution traces
+- one or more failed solution traces from the same model
+
+Your job is not to summarize the traces. Your job is to identify the smallest decisive structural commitment that the successful traces make and the failed traces miss.
+
+Use the successful trace(s) to recover:
+- the first representation, reduction, decomposition, invariant, construction, or control move that makes the problem tractable
+- what that move turns the problem into
+- why that move is the right lens for this problem type
+
+Use the failed trace(s) only to sharpen the boundary:
+- what tempting framing they commit to instead
+- what shortcut, canned formula, or overgeneralization causes drift
+- what the solver should explicitly guard against
+
+Write exactly one abstraction that would have redirected the failed traces early while still being reusable on nearby problems.
+
+Requirements:
+- Make the abstraction strategic, not procedural.
+- Name the actual structural move, not just the topic.
+- Tell the solver what to set up, rewrite, compare, count, preserve, or eliminate first.
+- Say what that move exposes or reduces the problem to.
+- Include one concise warning, checkpoint, or boundary condition if it materially improves reliability.
+
+Hard constraints:
+- Do not solve this instance step by step.
+- Do not include the final answer or answer-specific arithmetic.
+- Do not mention the words "successful", "failed", "correct", or "incorrect".
+- Do not quote or restate unsupported formulas from bad traces.
+- Do not output generic advice that could fit many unrelated problems.
+
+Preferred shape:
+- Sentence 1: the decisive structural move.
+- Sentence 2: what it turns the problem into and why that is the right lens.
+- Sentence 3: what to track, compare, or avoid.
+- Optional sentence 4: one checkpoint or pitfall.
+
+Return only:
+<abstraction>...</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Correct Solution Trace(s):
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+Incorrect Solution Trace(s):
+{{INCORRECT_SOLUTIONS_BLOCK}}
+
+Abstraction:

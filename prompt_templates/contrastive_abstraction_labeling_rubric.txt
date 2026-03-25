@@ -1,0 +1,25 @@
+Contrastive Abstraction Labeling Rubric
+
+Primary objective:
+- Increase downstream solve probability when the abstraction is used as a hint.
+
+Required properties:
+- Structural: identifies the decisive representation, invariant, decomposition, construction, or reduction.
+- Operational: tells the solver what to do, not just what topic the problem belongs to.
+- Transferable: useful on nearby problems, not only this instance.
+- Grounded: supported by the correct trace rather than imported from a memorized template.
+- Contrast-aware: inoculates against the most plausible wrong path exposed by the incorrect traces.
+
+Failure modes to reject:
+- Generic restatement of the task.
+- Topic labels with no executable action.
+- Hallucinated formulas or named methods not justified by the trace.
+- Partial derivations that hard-code this instance.
+- Advice so verbose that it becomes a worked solution.
+
+Review checklist:
+- Can a solver identify the first productive setup from this abstraction?
+- Does the abstraction explain what that setup buys?
+- Does it avoid locking the solver into brittle algebra?
+- Does it warn against the most likely misleading shortcut when relevant?
+- Would this still help on a neighboring problem from the same archetype?

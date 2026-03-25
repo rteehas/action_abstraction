@@ -1,0 +1,45 @@
+You are writing a short teacher note for a weaker math solver.
+
+The solver will later see only the problem statement, not these traces. Read the traces now and write the single note that would most improve the solver's odds on this problem family.
+
+Use the good trace(s) to identify both:
+- the general principle or reusable structural pattern involved
+- the concrete structural move that instantiates that principle in this problem
+
+Use the bad trace(s) only to identify the tempting wrong move, unsupported formula, or overgeneralization that the note should guard against.
+
+What the note should contain:
+- the general principle, method, or reusable structural pattern
+- the concrete structural move to make here
+- what that move exposes, reduces the problem to, or makes possible
+- the main thing to watch, preserve, compare, count, or avoid
+
+What the note must not become:
+- a worked solution
+- a topic label with no explanation
+- a fake grand method name for an ordinary algebra step
+- a numbered recipe
+- answer-specific arithmetic
+- unsupported formulas copied from bad traces
+
+Writing guidance:
+- Prefer notes that first name the general principle or pattern, then state the concrete move that realizes it here.
+- If there is no clean named principle, describe the reusable structural pattern instead.
+- Make the concrete move specific enough that a weaker solver could start from it.
+- Do not pad with irrelevant theory or multiple unrelated methods.
+- Keep it transferable to nearby problems of the same kind.
+- Keep it to 3 or 4 sentences.
+
+Return only:
+<abstraction>...</abstraction>
+
+Problem:
+{{PROBLEM}}
+
+Correct Solution Trace(s):
+{{CORRECT_SOLUTIONS_BLOCK}}
+
+Incorrect Solution Trace(s):
+{{INCORRECT_SOLUTIONS_BLOCK}}
+
+Abstraction:
