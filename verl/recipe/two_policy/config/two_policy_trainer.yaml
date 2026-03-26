@@ -1,0 +1,61 @@
+defaults:
+  - ppo_trainer
+  - actor@abstraction_actor_rollout_ref.actor: ${model_engine}_actor
+  - ref@abstraction_actor_rollout_ref.ref: ${model_engine}_ref
+  - rollout@abstraction_actor_rollout_ref.rollout: rollout
+  - model@abstraction_actor_rollout_ref.model: hf_model
+  - _self_
+
+data:
+  gen_batch_size: ${data.train_batch_size}
+
+abstraction_actor_rollout_ref:
+  hybrid_engine: true
+  nccl_timeout: 600
+  rollout:
+    layered_summon: False
+
+two_policy:
+  # Source of truth for abstraction-stage rollout prompts in TwoPolicyGRPOTrainer.
+  # The parquet prompt column is still loaded by the generic VERL dataset pipeline,
+  # but two-policy training rewrites raw_prompt from this template before rollout.
+  abstraction_prompt_template_path: /workspace/action_abstraction/prompt_templates/sft_principle_generation.txt
+  # Source of truth for solver-stage rollout prompts; the solver prompt is also
+  # rebuilt in-trainer from config rather than read from parquet.
+  solver_prompt_template_path: /workspace/action_abstraction/prompt_templates/hint_conditioned_problem_solving_rich_v1.txt
+  abstraction_open_tag: '<abstraction>'
+  abstraction_close_tag: '</abstraction>'
+  num_abstractions: 4
+  num_solver_rollouts: 4
+  validation_num_abstractions: 1
+  validation_num_solver_rollouts: 1
+  validation_solver_response_length: null
+  min_abstraction_chars: 32
+  max_num_principles: 5
+  require_principle_headers: True
+  invalid_placeholders:
+    - '...'
+    - 'n/a'
+    - 'none'
+    - 'null'
+    - 'unknown'
+  validity_reward:
+    valid: 0.1
+    malformed: 0.05
+    invalid: 0.0
+  aggregation:
+    mode: mean
+    mean_weight: 1.0
+    max_weight: 0.0
+  filter_solver_groups: True
+  resource_pools:
+    mode: colocate
+    solver_pool_id: global_pool
+    abstraction_pool_id: global_pool
+    solver_nnodes: null
+    solver_gpus_per_node: null
+    abstraction_nnodes: null
+    abstraction_gpus_per_node: null
+
+trainer:
+  project_name: verl-two-policy

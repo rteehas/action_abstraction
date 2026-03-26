@@ -1,0 +1,24 @@
+defaults:
+  - two_policy_trainer
+  - _self_
+
+reward:
+  reward_manager:
+    name: dapo
+  reward_kwargs:
+    overlong_buffer_cfg:
+      enable: False
+      len: 0
+      penalty_factor: 0.0
+      log: False
+    max_resp_len: ${data.max_response_length}
+
+algorithm:
+  filter_groups:
+    _target_: verl.trainer.config.FilterGroupsConfig
+    enable: False
+    metric: null
+    max_num_gen_batches: 0
+
+trainer:
+  project_name: verl-two-policy-dapo
