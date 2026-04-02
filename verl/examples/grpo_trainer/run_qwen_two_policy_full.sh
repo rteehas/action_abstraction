@@ -1,20 +1,48 @@
 #!/bin/bash
 set -euo pipefail
 
-cd /workspace/action_abstraction/verl
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+REPO_ROOT=${REPO_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}
+
+cd "${REPO_ROOT}/verl"
 
 export VLLM_ATTENTION_BACKEND=FLASH_ATTN
 export TOKENIZERS_PARALLELISM=false
 export HYDRA_FULL_ERROR=1
-export CUDA_LAUNCH_BLOCKING=1
+# export CUDA_LAUNCH_BLOCKING=1
 
-ABSTRACTION_MODEL_PATH=${ABSTRACTION_MODEL_PATH:-/workspace/action_abstraction/merged_models/qwen3_1_7b_principle_generator_ckpt1736}
+ray stop --force >/dev/null 2>&1 || true
+
+ABSTRACTION_MODEL_PATH=${ABSTRACTION_MODEL_PATH:-${REPO_ROOT}/merged_models/qwen3_1_7b_principle_generator_ckpt1736}
 SOLVER_MODEL_PATH=${SOLVER_MODEL_PATH:-Qwen/Qwen3-1.7B}
-TRAIN_FILES=${TRAIN_FILES:-/workspace/action_abstraction/verl_data/two_policy_deepscaler_qwne1_7b_passrate_025_075/train.parquet}
-VAL_FILES=${VAL_FILES:-/workspace/action_abstraction/verl_data/two_policy_aime2025_amc2023_eval/val.parquet}
-ABSTRACTION_MAX_RESP_LEN=${ABSTRACTION_MAX_RESP_LEN:-1024}
+TRAIN_FILES=${TRAIN_FILES:-${REPO_ROOT}/verl_data/two_policy_deepscaler_qwne1_7b_passrate_025_075/train.parquet}
+VAL_FILES=${VAL_FILES:-${REPO_ROOT}/verl_data/two_policy_aime2025_amc2023_eval/val.parquet}
+ABSTRACTION_PROMPT_TEMPLATE_PATH=${ABSTRACTION_PROMPT_TEMPLATE_PATH:-${REPO_ROOT}/prompt_templates/sft_principle_generation.txt}
+SOLVER_PROMPT_TEMPLATE_PATH=${SOLVER_PROMPT_TEMPLATE_PATH:-${REPO_ROOT}/prompt_templates/hint_conditioned_problem_solving_rich_v1.txt}
+ABSTRACTION_MAX_RESP_LEN=${ABSTRACTION_MAX_RESP_LEN:-2048}
 SOLVER_MAX_RESP_LEN=${SOLVER_MAX_RESP_LEN:-8192}
 VALIDATION_SOLVER_MAX_RESP_LEN=${VALIDATION_SOLVER_MAX_RESP_LEN:-32768}
+SOLVER_GPU_MEM_UTIL=${SOLVER_GPU_MEM_UTIL:-0.45}
+ABSTRACTION_GPU_MEM_UTIL=${ABSTRACTION_GPU_MEM_UTIL:-0.25}
+ROLLOUT_ENFORCE_EAGER=${ROLLOUT_ENFORCE_EAGER:-True}
+ROLLOUT_FREE_CACHE_ENGINE=${ROLLOUT_FREE_CACHE_ENGINE:-True}
+TRAIN_BATCH_SIZE=${TRAIN_BATCH_SIZE:-64}
+VAL_BATCH_SIZE=${VAL_BATCH_SIZE:-64}
+ACTOR_PPO_MINI_BATCH_SIZE=${ACTOR_PPO_MINI_BATCH_SIZE:-32}
+ACTOR_PPO_MAX_TOKEN_LEN_PER_GPU=${ACTOR_PPO_MAX_TOKEN_LEN_PER_GPU:-32768}
+TRAINER_SAVE_FREQ=${TRAINER_SAVE_FREQ:-100}
+TRAINER_TEST_FREQ=${TRAINER_TEST_FREQ:-20}
+TRAINER_TOTAL_EPOCHS=${TRAINER_TOTAL_EPOCHS:-10}
+TRAINER_VAL_BEFORE_TRAIN=${TRAINER_VAL_BEFORE_TRAIN:-True}
+TRAINER_PROJECT_NAME=${TRAINER_PROJECT_NAME:-verl_two_policy}
+TRAINER_EXPERIMENT_NAME=${TRAINER_EXPERIMENT_NAME:-qwen3_1.7b}
+RAY_NUM_CPUS=${RAY_NUM_CPUS:-8}
+TWO_POLICY_DECOUPLED_SOLVER_SCHEDULE_ENABLE=${TWO_POLICY_DECOUPLED_SOLVER_SCHEDULE_ENABLE:-False}
+TWO_POLICY_SOLVER_UPDATE_EVERY_N_STEPS=${TWO_POLICY_SOLVER_UPDATE_EVERY_N_STEPS:-1}
+TWO_POLICY_NON_UPDATE_SOLVER_ROLLOUTS=${TWO_POLICY_NON_UPDATE_SOLVER_ROLLOUTS:-1}
+TWO_POLICY_NON_UPDATE_SOLVER_TEMPERATURE=${TWO_POLICY_NON_UPDATE_SOLVER_TEMPERATURE:-0.0}
+TWO_POLICY_NON_UPDATE_SOLVER_TOP_P=${TWO_POLICY_NON_UPDATE_SOLVER_TOP_P:-1.0}
+TWO_POLICY_NON_UPDATE_SOLVER_TOP_K=${TWO_POLICY_NON_UPDATE_SOLVER_TOP_K:--1}
 MAX_RESP_LEN=$(( ABSTRACTION_MAX_RESP_LEN > SOLVER_MAX_RESP_LEN ? ABSTRACTION_MAX_RESP_LEN : SOLVER_MAX_RESP_LEN ))
 RUN_TAG=${RUN_TAG:-$(date -u +%Y%m%d_%H%M%S)}
 RUN_ROOT=${RUN_ROOT:-/tmp/action_abstraction/two_policy_runs}
@@ -26,12 +54,12 @@ VALIDATION_DIR=${VALIDATION_DIR:-${RUN_DIR}/validation_rollouts}
 mkdir -p "${RUN_DIR}" "${ROLLOUT_DIR}" "${CHECKPOINT_DIR}" "${VALIDATION_DIR}"
 
 args=(
-  hydra.searchpath=[file:///workspace/action_abstraction/verl/verl/trainer/config]
+  hydra.searchpath=[file://${REPO_ROOT}/verl/verl/trainer/config]
   algorithm.adv_estimator=grpo
   data.train_files="${TRAIN_FILES}"
   data.val_files="${VAL_FILES}"
-  data.train_batch_size=64
-  data.val_batch_size=64
+  data.train_batch_size="${TRAIN_BATCH_SIZE}"
+  data.val_batch_size="${VAL_BATCH_SIZE}"
   data.max_prompt_length=4096
   data.max_response_length="${MAX_RESP_LEN}"
   actor_rollout_ref.model.path="${SOLVER_MODEL_PATH}"
@@ -42,9 +70,9 @@ args=(
   actor_rollout_ref.model.enable_gradient_checkpointing=True
   actor_rollout_ref.model.use_liger=True
   actor_rollout_ref.actor.optim.lr=1e-6
-  actor_rollout_ref.actor.ppo_mini_batch_size=32
+  actor_rollout_ref.actor.ppo_mini_batch_size="${ACTOR_PPO_MINI_BATCH_SIZE}"
   actor_rollout_ref.actor.use_dynamic_bsz=True
-  actor_rollout_ref.actor.ppo_max_token_len_per_gpu=32768
+  actor_rollout_ref.actor.ppo_max_token_len_per_gpu="${ACTOR_PPO_MAX_TOKEN_LEN_PER_GPU}"
   actor_rollout_ref.actor.use_kl_loss=True
   actor_rollout_ref.actor.kl_loss_coef=0.001
   actor_rollout_ref.actor.kl_loss_type=low_var_kl
@@ -56,11 +84,11 @@ args=(
   actor_rollout_ref.rollout.name=vllm
   actor_rollout_ref.rollout.dtype=bfloat16
   actor_rollout_ref.rollout.temperature=0.6
-  actor_rollout_ref.rollout.gpu_memory_utilization=0.7
+  actor_rollout_ref.rollout.gpu_memory_utilization="${SOLVER_GPU_MEM_UTIL}"
   actor_rollout_ref.rollout.n=1
   actor_rollout_ref.rollout.response_length="${SOLVER_MAX_RESP_LEN}"
-  actor_rollout_ref.rollout.enforce_eager=False
-  actor_rollout_ref.rollout.free_cache_engine=True
+  actor_rollout_ref.rollout.enforce_eager="${ROLLOUT_ENFORCE_EAGER}"
+  actor_rollout_ref.rollout.free_cache_engine="${ROLLOUT_FREE_CACHE_ENGINE}"
   actor_rollout_ref.rollout.load_format=safetensors
   actor_rollout_ref.ref.fsdp_config.param_offload=True
   abstraction_actor_rollout_ref.model.path="${ABSTRACTION_MODEL_PATH}"
@@ -71,9 +99,9 @@ args=(
   abstraction_actor_rollout_ref.model.enable_gradient_checkpointing=True
   abstraction_actor_rollout_ref.model.use_liger=True
   abstraction_actor_rollout_ref.actor.optim.lr=1e-6
-  abstraction_actor_rollout_ref.actor.ppo_mini_batch_size=32
+  abstraction_actor_rollout_ref.actor.ppo_mini_batch_size="${ACTOR_PPO_MINI_BATCH_SIZE}"
   abstraction_actor_rollout_ref.actor.use_dynamic_bsz=True
-  abstraction_actor_rollout_ref.actor.ppo_max_token_len_per_gpu=32768
+  abstraction_actor_rollout_ref.actor.ppo_max_token_len_per_gpu="${ACTOR_PPO_MAX_TOKEN_LEN_PER_GPU}"
   abstraction_actor_rollout_ref.actor.use_kl_loss=True
   abstraction_actor_rollout_ref.actor.kl_loss_coef=0.001
   abstraction_actor_rollout_ref.actor.kl_loss_type=low_var_kl
@@ -85,36 +113,45 @@ args=(
   abstraction_actor_rollout_ref.rollout.name=vllm
   abstraction_actor_rollout_ref.rollout.dtype=bfloat16
   abstraction_actor_rollout_ref.rollout.temperature=0.6
-  abstraction_actor_rollout_ref.rollout.gpu_memory_utilization=0.7
+  abstraction_actor_rollout_ref.rollout.gpu_memory_utilization="${ABSTRACTION_GPU_MEM_UTIL}"
   abstraction_actor_rollout_ref.rollout.n=1
   abstraction_actor_rollout_ref.rollout.response_length="${ABSTRACTION_MAX_RESP_LEN}"
-  abstraction_actor_rollout_ref.rollout.enforce_eager=False
-  abstraction_actor_rollout_ref.rollout.free_cache_engine=True
+  abstraction_actor_rollout_ref.rollout.enforce_eager="${ROLLOUT_ENFORCE_EAGER}"
+  abstraction_actor_rollout_ref.rollout.free_cache_engine="${ROLLOUT_FREE_CACHE_ENGINE}"
   abstraction_actor_rollout_ref.rollout.load_format=safetensors
   abstraction_actor_rollout_ref.ref.fsdp_config.param_offload=True
+  two_policy.abstraction_prompt_template_path="${ABSTRACTION_PROMPT_TEMPLATE_PATH}"
+  two_policy.solver_prompt_template_path="${SOLVER_PROMPT_TEMPLATE_PATH}"
   two_policy.num_abstractions=4
   two_policy.num_solver_rollouts=4
   two_policy.validation_num_abstractions=4
   two_policy.validation_num_solver_rollouts=4
   two_policy.validation_solver_response_length="${VALIDATION_SOLVER_MAX_RESP_LEN}"
+  two_policy.decoupled_solver_schedule.enable="${TWO_POLICY_DECOUPLED_SOLVER_SCHEDULE_ENABLE}"
+  two_policy.decoupled_solver_schedule.solver_update_every_n_steps="${TWO_POLICY_SOLVER_UPDATE_EVERY_N_STEPS}"
+  two_policy.decoupled_solver_schedule.non_update_solver_rollouts="${TWO_POLICY_NON_UPDATE_SOLVER_ROLLOUTS}"
+  two_policy.decoupled_solver_schedule.non_update_solver_temperature="${TWO_POLICY_NON_UPDATE_SOLVER_TEMPERATURE}"
+  two_policy.decoupled_solver_schedule.non_update_solver_top_p="${TWO_POLICY_NON_UPDATE_SOLVER_TOP_P}"
+  two_policy.decoupled_solver_schedule.non_update_solver_top_k="${TWO_POLICY_NON_UPDATE_SOLVER_TOP_K}"
   trainer.critic_warmup=0
   trainer.logger=[console,wandb]
-  trainer.project_name=verl_two_policy
-  trainer.experiment_name=qwen3_1.7b
+  trainer.project_name="${TRAINER_PROJECT_NAME}"
+  trainer.experiment_name="${TRAINER_EXPERIMENT_NAME}"
   trainer.n_gpus_per_node=1
   trainer.nnodes=1
   trainer.rollout_data_dir="${ROLLOUT_DIR}"
   trainer.validation_data_dir="${VALIDATION_DIR}"
   trainer.default_local_dir="${CHECKPOINT_DIR}"
-  trainer.save_freq=100
-  trainer.test_freq=20
-  trainer.total_epochs=10
+  trainer.save_freq="${TRAINER_SAVE_FREQ}"
+  trainer.test_freq="${TRAINER_TEST_FREQ}"
+  trainer.total_epochs="${TRAINER_TOTAL_EPOCHS}"
   trainer.resume_mode=auto
+  trainer.val_before_train="${TRAINER_VAL_BEFORE_TRAIN}"
   trainer.max_actor_ckpt_to_keep=1
-  reward.custom_reward_function.path=/workspace/action_abstraction/verl/verl/utils/reward_score/deepscaler_math_reward_multibox_patched.py
+  reward.custom_reward_function.path="${REPO_ROOT}/verl/verl/utils/reward_score/deepscaler_math_reward_multibox_patched.py"
   reward.custom_reward_function.name=compute_score
   reward.reward_manager.name=naive
-  ray_kwargs.ray_init.num_cpus=64
+  ray_kwargs.ray_init.num_cpus="${RAY_NUM_CPUS}"
 )
 
 python3 -m recipe.two_policy.main_two_policy_ppo "${args[@]}" "$@"

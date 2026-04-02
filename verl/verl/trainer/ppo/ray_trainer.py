@@ -218,6 +218,21 @@ def compute_advantage(
     return data
 
 
+def _to_json_safe(value: Any):
+    """Convert nested rollout metadata to plain Python types for JSONL dumps."""
+    if isinstance(value, dict):
+        return {k: _to_json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_to_json_safe(v) for v in value]
+    if isinstance(value, np.ndarray):
+        return [_to_json_safe(v) for v in value.tolist()]
+    if isinstance(value, torch.Tensor):
+        return _to_json_safe(value.detach().cpu().tolist())
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
 class RayPPOTrainer:
     """Distributed PPO trainer using Ray for scalable reinforcement learning.
 
@@ -407,7 +422,7 @@ class RayPPOTrainer:
 
         lines = []
         for i in range(n):
-            entry = {k: v[i] for k, v in base_data.items()}
+            entry = {k: _to_json_safe(v[i]) for k, v in base_data.items()}
             lines.append(json.dumps(entry, ensure_ascii=False))
 
         with open(filename, "w") as f:

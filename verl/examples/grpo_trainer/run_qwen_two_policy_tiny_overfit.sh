@@ -1,44 +1,66 @@
 #!/bin/bash
 set -euo pipefail
 
-source /workspace/miniconda3/etc/profile.d/conda.sh
-conda activate abstraction
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+REPO_ROOT=${REPO_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}
+
+if [[ -z "${CONDA_DEFAULT_ENV:-}" ]] && [[ -f /workspace/miniconda3/etc/profile.d/conda.sh ]]; then
+  source /workspace/miniconda3/etc/profile.d/conda.sh
+  conda activate abstraction
+fi
 
 ray stop --force >/dev/null 2>&1 || true
 
 MODE=${MODE:-grpo}
 RUN_TAG=${RUN_TAG:-$(date -u +%Y%m%d_%H%M%S)}
-DATA_DIR=${DATA_DIR:-/workspace/action_abstraction/verl_data/two_policy_tiny_overfit}
+DATA_DIR=${DATA_DIR:-${REPO_ROOT}/verl_data/two_policy_tiny_overfit}
+TINY_OVERFIT_SOURCE_PARQUET=${TINY_OVERFIT_SOURCE_PARQUET:-${REPO_ROOT}/verl_data/sft_dataset_no_rl_partial_05_less1_traintest_concat/train.parquet}
 MAX_PROMPT_LEN=${MAX_PROMPT_LEN:-4096}
 ABSTRACTION_MAX_RESP_LEN=${ABSTRACTION_MAX_RESP_LEN:-1024}
 SOLVER_MAX_RESP_LEN=${SOLVER_MAX_RESP_LEN:-4096}
 MAX_RESP_LEN=$(( ABSTRACTION_MAX_RESP_LEN > SOLVER_MAX_RESP_LEN ? ABSTRACTION_MAX_RESP_LEN : SOLVER_MAX_RESP_LEN ))
-TRAIN_INDICES=${TRAIN_INDICES:-1606,2758}
-VAL_INDICES=${VAL_INDICES:-1606,2758}
-ABSTRACTION_MODEL_PATH=${ABSTRACTION_MODEL_PATH:-/workspace/action_abstraction/merged_models/qwen3_1_7b_principle_generator_ckpt1736}
-SOLVER_MODEL_PATH=${SOLVER_MODEL_PATH:-Qwen/Qwen3-1.7B}
+TRAIN_INDICES=${TRAIN_INDICES:-144,1606}
+VAL_INDICES=${VAL_INDICES:-144,1606}
+ABSTRACTION_MODEL_PATH=${ABSTRACTION_MODEL_PATH:-${REPO_ROOT}/merged_models/qwen3_1_7b_principle_generator_ckpt1736}
+SOLVER_MODEL_PATH=${SOLVER_MODEL_PATH:-${REPO_ROOT}/solver_sft_qwen_1_7b_450}
+ABSTRACTION_PROMPT_TEMPLATE_PATH=${ABSTRACTION_PROMPT_TEMPLATE_PATH:-${REPO_ROOT}/prompt_templates/sft_principle_generation.txt}
+SOLVER_PROMPT_TEMPLATE_PATH=${SOLVER_PROMPT_TEMPLATE_PATH:-${REPO_ROOT}/prompt_templates/hint_conditioned_problem_solving_rich_v1.txt}
 RUN_ROOT=${RUN_ROOT:-/tmp/action_abstraction/two_policy_runs}
 RUN_DIR=${RUN_DIR:-${RUN_ROOT}/tiny_overfit_${MODE}_${RUN_TAG}}
 ROLLOUT_DIR=${ROLLOUT_DIR:-${RUN_DIR}/rollouts}
 CHECKPOINT_DIR=${CHECKPOINT_DIR:-${RUN_DIR}/checkpoints}
+RAY_NUM_CPUS=${RAY_NUM_CPUS:-8}
+DATA_DATALOADER_NUM_WORKERS=${DATA_DATALOADER_NUM_WORKERS:-0}
+REWARD_NUM_WORKERS=${REWARD_NUM_WORKERS:-1}
 EPOCHS=${EPOCHS:-20}
 LR=${LR:-1e-6}
 NUM_ABS=${NUM_ABS:-2}
 NUM_SOL=${NUM_SOL:-4}
+RUN_BASELINE_EVAL=${RUN_BASELINE_EVAL:-True}
+RUN_TRAIN=${RUN_TRAIN:-True}
+RUN_FINAL_EVAL=${RUN_FINAL_EVAL:-True}
+TRAIN_VAL_BEFORE_TRAIN=${TRAIN_VAL_BEFORE_TRAIN:-True}
+TWO_POLICY_DECOUPLED_SOLVER_SCHEDULE_ENABLE=${TWO_POLICY_DECOUPLED_SOLVER_SCHEDULE_ENABLE:-False}
+TWO_POLICY_SOLVER_UPDATE_EVERY_N_STEPS=${TWO_POLICY_SOLVER_UPDATE_EVERY_N_STEPS:-1}
+TWO_POLICY_NON_UPDATE_SOLVER_ROLLOUTS=${TWO_POLICY_NON_UPDATE_SOLVER_ROLLOUTS:-1}
+TWO_POLICY_NON_UPDATE_SOLVER_TEMPERATURE=${TWO_POLICY_NON_UPDATE_SOLVER_TEMPERATURE:-0.0}
+TWO_POLICY_NON_UPDATE_SOLVER_TOP_P=${TWO_POLICY_NON_UPDATE_SOLVER_TOP_P:-1.0}
+TWO_POLICY_NON_UPDATE_SOLVER_TOP_K=${TWO_POLICY_NON_UPDATE_SOLVER_TOP_K:--1}
 
 mkdir -p "${RUN_DIR}" "${ROLLOUT_DIR}" "${CHECKPOINT_DIR}"
 
 if [ ! -d "${ABSTRACTION_MODEL_PATH}" ] || [ ! -f "${ABSTRACTION_MODEL_PATH}/config.json" ]; then
-  python /workspace/action_abstraction/scripts/merge_lora_adapter.py \
+  python "${REPO_ROOT}/scripts/merge_lora_adapter.py" \
     --output-dir "${ABSTRACTION_MODEL_PATH}"
 fi
 
-python /workspace/action_abstraction/scripts/build_two_policy_tiny_rl_dataset.py \
+python "${REPO_ROOT}/scripts/build_two_policy_tiny_rl_dataset.py" \
+  --source-parquet "${TINY_OVERFIT_SOURCE_PARQUET}" \
   --output-dir "${DATA_DIR}" \
   --train-indices "${TRAIN_INDICES}" \
   --val-indices "${VAL_INDICES}"
 
-cd /workspace/action_abstraction/verl
+cd "${REPO_ROOT}/verl"
 
 MAIN_MODULE=recipe.two_policy.main_two_policy_ppo
 reward_manager=naive
@@ -53,12 +75,14 @@ if [ "${MODE}" = "dapo" ]; then
 fi
 
 common_args=(
-  hydra.searchpath=[file:///workspace/action_abstraction/verl/verl/trainer/config]
+  hydra.searchpath=[file://${REPO_ROOT}/verl/verl/trainer/config]
   algorithm.adv_estimator=grpo
   data.train_files="${DATA_DIR}/train.parquet"
   data.val_files="${DATA_DIR}/val.parquet"
   data.train_batch_size=1
   data.val_batch_size=2
+  data.shuffle=False
+  data.dataloader_num_workers="${DATA_DATALOADER_NUM_WORKERS}"
   data.max_prompt_length="${MAX_PROMPT_LEN}"
   data.max_response_length="${MAX_RESP_LEN}"
   actor_rollout_ref.model.path="${SOLVER_MODEL_PATH}"
@@ -119,10 +143,18 @@ common_args=(
   abstraction_actor_rollout_ref.rollout.free_cache_engine=True
   abstraction_actor_rollout_ref.rollout.load_format=safetensors
   abstraction_actor_rollout_ref.ref.fsdp_config.param_offload=True
+  two_policy.abstraction_prompt_template_path="${ABSTRACTION_PROMPT_TEMPLATE_PATH}"
+  two_policy.solver_prompt_template_path="${SOLVER_PROMPT_TEMPLATE_PATH}"
   two_policy.num_abstractions="${NUM_ABS}"
   two_policy.num_solver_rollouts="${NUM_SOL}"
   two_policy.validation_num_abstractions="${NUM_ABS}"
   two_policy.validation_num_solver_rollouts="${NUM_SOL}"
+  two_policy.decoupled_solver_schedule.enable="${TWO_POLICY_DECOUPLED_SOLVER_SCHEDULE_ENABLE}"
+  two_policy.decoupled_solver_schedule.solver_update_every_n_steps="${TWO_POLICY_SOLVER_UPDATE_EVERY_N_STEPS}"
+  two_policy.decoupled_solver_schedule.non_update_solver_rollouts="${TWO_POLICY_NON_UPDATE_SOLVER_ROLLOUTS}"
+  two_policy.decoupled_solver_schedule.non_update_solver_temperature="${TWO_POLICY_NON_UPDATE_SOLVER_TEMPERATURE}"
+  two_policy.decoupled_solver_schedule.non_update_solver_top_p="${TWO_POLICY_NON_UPDATE_SOLVER_TOP_P}"
+  two_policy.decoupled_solver_schedule.non_update_solver_top_k="${TWO_POLICY_NON_UPDATE_SOLVER_TOP_K}"
   trainer.critic_warmup=0
   trainer.logger=[console]
   trainer.project_name=verl_two_policy_overfit
@@ -134,51 +166,59 @@ common_args=(
   trainer.save_freq=1
   trainer.test_freq=1
   trainer.max_actor_ckpt_to_keep=4
-  reward.custom_reward_function.path=/workspace/action_abstraction/verl/verl/utils/reward_score/deepscaler_math_reward_multibox_patched.py
+  reward.custom_reward_function.path="${REPO_ROOT}/verl/verl/utils/reward_score/deepscaler_math_reward_multibox_patched.py"
   reward.custom_reward_function.name=compute_score
+  reward.num_workers="${REWARD_NUM_WORKERS}"
   reward.reward_manager.name="${reward_manager}"
   algorithm.use_kl_in_reward=False
-  ray_kwargs.ray_init.num_cpus=32
+  ray_kwargs.ray_init.num_cpus="${RAY_NUM_CPUS}"
 )
 
-python -m "${MAIN_MODULE}" \
-  "${common_args[@]}" \
-  trainer.val_before_train=True \
-  trainer.val_only=True \
-  trainer.resume_mode=disable \
-  "${extra_args[@]}" \
-  "$@" | tee "${RUN_DIR}/baseline_eval.log"
+if [ "${RUN_BASELINE_EVAL}" = "True" ]; then
+  python -m "${MAIN_MODULE}" \
+    "${common_args[@]}" \
+    trainer.val_before_train=True \
+    trainer.val_only=True \
+    trainer.resume_mode=disable \
+    "${extra_args[@]}" \
+    "$@" | tee "${RUN_DIR}/baseline_eval.log"
 
-ray stop --force >/dev/null 2>&1 || true
-
-ray stop --force >/dev/null 2>&1 || true
-python -m "${MAIN_MODULE}" \
-  "${common_args[@]}" \
-  trainer.val_before_train=True \
-  trainer.val_only=False \
-  trainer.total_epochs="${EPOCHS}" \
-  trainer.resume_mode=disable \
-  "${extra_args[@]}" \
-  "$@" | tee "${RUN_DIR}/train.log"
-
-ray stop --force >/dev/null 2>&1 || true
-
-LATEST_CKPT=$(find "${CHECKPOINT_DIR}" -maxdepth 1 -type d -name "global_step_*" | sort -V | tail -n 1)
-if [ -z "${LATEST_CKPT}" ]; then
-  echo "No checkpoint found under ${CHECKPOINT_DIR}" >&2
-  exit 1
+  ray stop --force >/dev/null 2>&1 || true
 fi
 
-python -m "${MAIN_MODULE}" \
-  "${common_args[@]}" \
-  trainer.val_before_train=True \
-  trainer.val_only=True \
-  trainer.resume_mode=resume_path \
-  trainer.resume_from_path="${LATEST_CKPT}" \
-  "${extra_args[@]}" \
-  "$@" | tee "${RUN_DIR}/final_eval.log"
+if [ "${RUN_TRAIN}" = "True" ]; then
+  ray stop --force >/dev/null 2>&1 || true
+  python -m "${MAIN_MODULE}" \
+    "${common_args[@]}" \
+    trainer.val_before_train="${TRAIN_VAL_BEFORE_TRAIN}" \
+    trainer.val_only=False \
+    trainer.total_epochs="${EPOCHS}" \
+    trainer.resume_mode=disable \
+    "${extra_args[@]}" \
+    "$@" | tee "${RUN_DIR}/train.log"
 
-python - <<"PY" "${RUN_DIR}/baseline_eval.log" "${RUN_DIR}/final_eval.log"
+  ray stop --force >/dev/null 2>&1 || true
+fi
+
+if [ "${RUN_FINAL_EVAL}" = "True" ]; then
+  LATEST_CKPT=$(find "${CHECKPOINT_DIR}" -maxdepth 1 -type d -name "global_step_*" | sort -V | tail -n 1)
+  if [ -z "${LATEST_CKPT}" ]; then
+    echo "No checkpoint found under ${CHECKPOINT_DIR}" >&2
+    exit 1
+  fi
+
+  python -m "${MAIN_MODULE}" \
+    "${common_args[@]}" \
+    trainer.val_before_train=True \
+    trainer.val_only=True \
+    trainer.resume_mode=resume_path \
+    trainer.resume_from_path="${LATEST_CKPT}" \
+    "${extra_args[@]}" \
+    "$@" | tee "${RUN_DIR}/final_eval.log"
+fi
+
+if [ "${RUN_BASELINE_EVAL}" = "True" ] && [ "${RUN_FINAL_EVAL}" = "True" ]; then
+  python - <<"PY" "${RUN_DIR}/baseline_eval.log" "${RUN_DIR}/final_eval.log"
 import ast
 import re
 import sys
@@ -214,3 +254,4 @@ for key in keys:
     if key in baseline and key in final:
         print(f"  {key}: {final[key] - baseline[key]}")
 PY
+fi

@@ -1,5 +1,5 @@
-from math_verify import parse, verify
 import re
+from math_verify import parse, verify
 
 
 # Canonical 24-hour times like 6:00, 11:00, 14:50, 19:59.

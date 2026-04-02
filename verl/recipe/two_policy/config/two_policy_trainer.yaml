@@ -30,6 +30,13 @@ two_policy:
   validation_num_abstractions: 1
   validation_num_solver_rollouts: 1
   validation_solver_response_length: null
+  decoupled_solver_schedule:
+    enable: False
+    solver_update_every_n_steps: 1
+    non_update_solver_rollouts: 1
+    non_update_solver_temperature: 0.0
+    non_update_solver_top_p: 1.0
+    non_update_solver_top_k: -1
   min_abstraction_chars: 32
   max_num_principles: 5
   require_principle_headers: True

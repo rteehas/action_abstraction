@@ -17,8 +17,9 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 
-DEFAULT_SOURCE = "/workspace/action_abstraction/verl_data/sft_dataset_no_rl_partial_05_less1_traintest_concat/train.parquet"
-DEFAULT_TEMPLATE = "/workspace/action_abstraction/prompt_templates/sft_principle_generation.txt"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_SOURCE = str(REPO_ROOT / "verl_data" / "sft_dataset_no_rl_partial_05_less1_traintest_concat" / "train.parquet")
+DEFAULT_TEMPLATE = str(REPO_ROOT / "prompt_templates" / "sft_principle_generation.txt")
 
 
 def parse_indices(text: str) -> list[int]:
@@ -78,10 +79,10 @@ def main() -> None:
     parser.add_argument("--source-parquet", default=DEFAULT_SOURCE)
     parser.add_argument(
         "--output-dir",
-        default="/workspace/action_abstraction/verl_data/two_policy_tiny_overfit",
+        default=str(REPO_ROOT / "verl_data" / "two_policy_tiny_overfit"),
     )
-    parser.add_argument("--train-indices", default="1606,2758")
-    parser.add_argument("--val-indices", default="1606,2758")
+    parser.add_argument("--train-indices", default="144,1606")
+    parser.add_argument("--val-indices", default="144,1606")
     parser.add_argument(
         "--prompt-template",
         default=DEFAULT_TEMPLATE,

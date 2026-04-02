@@ -1,39 +1,48 @@
 #!/bin/bash
 set -euo pipefail
 
-source /workspace/miniconda3/etc/profile.d/conda.sh
-conda activate abstraction
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+REPO_ROOT=${REPO_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}
+
+if [[ -z "${CONDA_DEFAULT_ENV:-}" ]] && [[ -f /workspace/miniconda3/etc/profile.d/conda.sh ]]; then
+  source /workspace/miniconda3/etc/profile.d/conda.sh
+  conda activate abstraction
+fi
 
 ray stop --force >/dev/null 2>&1 || true
 
 MODE=${MODE:-dapo}
 RUN_TAG=${RUN_TAG:-$(date -u +%Y%m%d_%H%M%S)}
-DATA_DIR=${DATA_DIR:-/workspace/action_abstraction/verl_data/two_policy_tiny_smoke}
+DATA_DIR=${DATA_DIR:-${REPO_ROOT}/verl_data/two_policy_tiny_smoke}
 TRAIN_INDICES=${TRAIN_INDICES:-1606,2758}
 VAL_INDICES=${VAL_INDICES:-1606,2758}
 ABSTRACTION_MAX_RESP_LEN=${ABSTRACTION_MAX_RESP_LEN:-1024}
 SOLVER_MAX_RESP_LEN=${SOLVER_MAX_RESP_LEN:-3072}
 MAX_RESP_LEN=$(( ABSTRACTION_MAX_RESP_LEN > SOLVER_MAX_RESP_LEN ? ABSTRACTION_MAX_RESP_LEN : SOLVER_MAX_RESP_LEN ))
-ABSTRACTION_MODEL_PATH=${ABSTRACTION_MODEL_PATH:-/workspace/action_abstraction/merged_models/qwen3_1_7b_principle_generator_ckpt1736}
-SOLVER_MODEL_PATH=${SOLVER_MODEL_PATH:-Qwen/Qwen3-1.7B}
+ABSTRACTION_MODEL_PATH=${ABSTRACTION_MODEL_PATH:-${REPO_ROOT}/merged_models/qwen3_1_7b_principle_generator_ckpt1736}
+SOLVER_MODEL_PATH=${SOLVER_MODEL_PATH:-${REPO_ROOT}/solver_sft_qwen_1_7b_450}
+ABSTRACTION_PROMPT_TEMPLATE_PATH=${ABSTRACTION_PROMPT_TEMPLATE_PATH:-${REPO_ROOT}/prompt_templates/sft_principle_generation.txt}
+SOLVER_PROMPT_TEMPLATE_PATH=${SOLVER_PROMPT_TEMPLATE_PATH:-${REPO_ROOT}/prompt_templates/hint_conditioned_problem_solving_rich_v1.txt}
 RUN_ROOT=${RUN_ROOT:-/tmp/action_abstraction/two_policy_runs}
 RUN_DIR=${RUN_DIR:-${RUN_ROOT}/tiny_smoke_${MODE}_${RUN_TAG}}
 ROLLOUT_DIR=${ROLLOUT_DIR:-${RUN_DIR}/rollouts}
 CHECKPOINT_DIR=${CHECKPOINT_DIR:-${RUN_DIR}/checkpoints}
+DATA_DATALOADER_NUM_WORKERS=${DATA_DATALOADER_NUM_WORKERS:-0}
+REWARD_NUM_WORKERS=${REWARD_NUM_WORKERS:-1}
 
 mkdir -p "${RUN_DIR}" "${ROLLOUT_DIR}" "${CHECKPOINT_DIR}"
 
 if [ ! -d "${ABSTRACTION_MODEL_PATH}" ] || [ ! -f "${ABSTRACTION_MODEL_PATH}/config.json" ]; then
-  python /workspace/action_abstraction/scripts/merge_lora_adapter.py \
+  python "${REPO_ROOT}/scripts/merge_lora_adapter.py" \
     --output-dir "${ABSTRACTION_MODEL_PATH}"
 fi
 
-python /workspace/action_abstraction/scripts/build_two_policy_tiny_rl_dataset.py \
+python "${REPO_ROOT}/scripts/build_two_policy_tiny_rl_dataset.py" \
   --output-dir "${DATA_DIR}" \
   --train-indices "${TRAIN_INDICES}" \
   --val-indices "${VAL_INDICES}"
 
-cd /workspace/action_abstraction/verl
+cd "${REPO_ROOT}/verl"
 
 MAIN_MODULE=recipe.two_policy.main_two_policy_ppo
 reward_manager=naive
@@ -48,12 +57,13 @@ if [ "${MODE}" = "dapo" ]; then
 fi
 
 args=(
-  hydra.searchpath=[file:///workspace/action_abstraction/verl/verl/trainer/config]
+  hydra.searchpath=[file://${REPO_ROOT}/verl/verl/trainer/config]
   algorithm.adv_estimator=grpo
   data.train_files="${DATA_DIR}/train.parquet"
   data.val_files="${DATA_DIR}/val.parquet"
   data.train_batch_size=2
   data.val_batch_size=2
+  data.dataloader_num_workers="${DATA_DATALOADER_NUM_WORKERS}"
   data.max_prompt_length=3072
   data.max_response_length="${MAX_RESP_LEN}"
   actor_rollout_ref.model.path="${SOLVER_MODEL_PATH}"
@@ -114,6 +124,8 @@ args=(
   abstraction_actor_rollout_ref.rollout.free_cache_engine=True
   abstraction_actor_rollout_ref.rollout.load_format=safetensors
   abstraction_actor_rollout_ref.ref.fsdp_config.param_offload=True
+  two_policy.abstraction_prompt_template_path="${ABSTRACTION_PROMPT_TEMPLATE_PATH}"
+  two_policy.solver_prompt_template_path="${SOLVER_PROMPT_TEMPLATE_PATH}"
   two_policy.num_abstractions=2
   two_policy.num_solver_rollouts=2
   two_policy.validation_num_abstractions=2
@@ -132,8 +144,9 @@ args=(
   trainer.total_epochs=1
   trainer.resume_mode=disable
   trainer.max_actor_ckpt_to_keep=2
-  reward.custom_reward_function.path=/workspace/action_abstraction/verl/verl/utils/reward_score/deepscaler_math_reward_multibox_patched.py
+  reward.custom_reward_function.path="${REPO_ROOT}/verl/verl/utils/reward_score/deepscaler_math_reward_multibox_patched.py"
   reward.custom_reward_function.name=compute_score
+  reward.num_workers="${REWARD_NUM_WORKERS}"
   reward.reward_manager.name="${reward_manager}"
   algorithm.use_kl_in_reward=False
   ray_kwargs.ray_init.num_cpus=32

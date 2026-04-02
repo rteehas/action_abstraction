@@ -114,6 +114,33 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
             lora_rank = branch_cfg.model.get('lora_rank', 0)
         return lora_rank > 0 or branch_cfg.model.get('lora_adapter_path') is not None
 
+    def _get_solver_step_plan(self):
+        rollout_cfg = self.config.actor_rollout_ref.rollout
+        default_plan = {
+            'is_update_step': True,
+            'num_rollouts': int(self.config.two_policy.num_solver_rollouts),
+            'temperature': float(rollout_cfg.temperature),
+            'top_p': float(rollout_cfg.get('top_p', 1.0)),
+            'top_k': int(rollout_cfg.get('top_k', 0)),
+        }
+
+        schedule_cfg = self.config.two_policy.get('decoupled_solver_schedule', None)
+        if schedule_cfg is None or not schedule_cfg.get('enable', False):
+            return default_plan
+
+        update_every = max(1, int(schedule_cfg.get('solver_update_every_n_steps', 1)))
+        is_update_step = ((self.global_steps - 1) % update_every) == 0
+        if is_update_step:
+            return default_plan
+
+        return {
+            'is_update_step': False,
+            'num_rollouts': max(1, int(schedule_cfg.get('non_update_solver_rollouts', 1))),
+            'temperature': float(schedule_cfg.get('non_update_solver_temperature', 0.0)),
+            'top_p': float(schedule_cfg.get('non_update_solver_top_p', 1.0)),
+            'top_k': int(schedule_cfg.get('non_update_solver_top_k', -1)),
+        }
+
     @contextmanager
     def _use_branch(self, branch_cfg, actor_rollout_wg, ref_policy_wg, ref_in_actor, use_reference_policy, use_prefix):
         old_cfg = self.config.actor_rollout_ref
@@ -506,7 +533,11 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
     @staticmethod
     def _build_rollout_input(batch: DataProto) -> DataProto:
         # The agent loop rebuilds prompt tensors from raw_prompt, so stale dataset prompt tensors must be dropped.
-        return batch.select(batch_keys=[])
+        rollout_batch = batch.select(batch_keys=[])
+        # DataProto selection/repeat operations share meta_info by reference, which lets
+        # solver-side schedule overrides leak back into abstraction batches.
+        rollout_batch.meta_info = copy.deepcopy(rollout_batch.meta_info)
+        return rollout_batch
 
     def _compute_reward_scores_padded(self, batch: DataProto):
         size_divisor = max(1, len(self.reward_loop_manager.reward_loop_workers))
@@ -530,6 +561,9 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
         num_abstractions: int,
         num_solver_rollouts: int,
         solver_response_length: int | None = None,
+        solver_temperature: float | None = None,
+        solver_top_p: float | None = None,
+        solver_top_k: int | None = None,
     ):
         problem_batch = self._build_problem_batch(batch)
         abstraction_batch = self._build_rollout_input(
@@ -609,7 +643,15 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
             )
             solver_batch.non_tensor_batch['uid'] = solver_batch.non_tensor_batch['abstraction_uid'].copy()
             solver_batch.meta_info['global_steps'] = self.global_steps
-            solver_batch.meta_info['temperature'] = self.config.actor_rollout_ref.rollout.temperature
+            solver_batch.meta_info['temperature'] = (
+                self.config.actor_rollout_ref.rollout.temperature if solver_temperature is None else solver_temperature
+            )
+            solver_batch.meta_info['top_p'] = (
+                self.config.actor_rollout_ref.rollout.get('top_p', 1.0) if solver_top_p is None else solver_top_p
+            )
+            solver_batch.meta_info['top_k'] = (
+                self.config.actor_rollout_ref.rollout.get('top_k', 0) if solver_top_k is None else solver_top_k
+            )
             if solver_response_length is not None:
                 solver_batch.meta_info['response_length'] = solver_response_length
 
@@ -883,6 +925,13 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
             metrics['two_policy/solver_reward_mean'] = 0.0
         return metrics
 
+    @staticmethod
+    def _is_metric_ready_batch(batch: DataProto | None) -> bool:
+        if batch is None or len(batch) == 0:
+            return False
+        required_keys = {'token_level_rewards', 'advantages', 'returns'}
+        return required_keys.issubset(set(batch.batch.keys()))
+
     def _validate(self, merged: bool = False):
         del merged
         num_abstractions = self.config.two_policy.validation_num_abstractions
@@ -1081,12 +1130,22 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
                 num_gen_batches += 1
 
                 with marked_timer('step', timing_raw):
+                    solver_step_plan = self._get_solver_step_plan()
+                    metrics['two_policy/solver_is_update_step'] = float(solver_step_plan['is_update_step'])
+                    metrics['two_policy/solver_rollouts_per_abstraction'] = solver_step_plan['num_rollouts']
+                    metrics['two_policy/solver_rollout_temperature'] = solver_step_plan['temperature']
+                    metrics['two_policy/solver_rollout_top_p'] = solver_step_plan['top_p']
+                    metrics['two_policy/solver_rollout_top_k'] = solver_step_plan['top_k']
+
                     abstraction_batch, solver_batch = self._run_two_policy_rollouts(
                         batch=batch,
                         timing_raw=timing_raw,
                         do_profile=curr_step_profile,
                         num_abstractions=self.config.two_policy.num_abstractions,
-                        num_solver_rollouts=self.config.two_policy.num_solver_rollouts,
+                        num_solver_rollouts=solver_step_plan['num_rollouts'],
+                        solver_temperature=solver_step_plan['temperature'],
+                        solver_top_p=solver_step_plan['top_p'],
+                        solver_top_k=solver_step_plan['top_k'],
                     )
 
                     if filter_enabled:
@@ -1138,36 +1197,38 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
                         timing_raw=timing_raw,
                         timing_prefix='abstraction',
                     )
-                    solver_batch = self._prepare_branch_batch(
-                        batch=solver_batch,
-                        branch_cfg=self.config.actor_rollout_ref,
-                        actor_rollout_wg=self.actor_rollout_wg,
-                        ref_policy_wg=self.ref_policy_wg,
-                        ref_in_actor=self.ref_in_actor,
-                        use_reference_policy=self.use_reference_policy,
-                        use_prefix_grouper=self.use_prefix_grouper,
-                        num_repeat=self.config.two_policy.num_solver_rollouts,
-                        branch_prefix='actor',
-                        kl_ctrl=self.kl_ctrl_in_reward if self.config.algorithm.use_kl_in_reward else None,
-                        metrics=metrics,
-                        timing_raw=timing_raw,
-                        timing_prefix='solver',
-                    )
+                    if solver_step_plan['is_update_step']:
+                        solver_batch = self._prepare_branch_batch(
+                            batch=solver_batch,
+                            branch_cfg=self.config.actor_rollout_ref,
+                            actor_rollout_wg=self.actor_rollout_wg,
+                            ref_policy_wg=self.ref_policy_wg,
+                            ref_in_actor=self.ref_in_actor,
+                            use_reference_policy=self.use_reference_policy,
+                            use_prefix_grouper=self.use_prefix_grouper,
+                            num_repeat=solver_step_plan['num_rollouts'],
+                            branch_prefix='actor',
+                            kl_ctrl=self.kl_ctrl_in_reward if self.config.algorithm.use_kl_in_reward else None,
+                            metrics=metrics,
+                            timing_raw=timing_raw,
+                            timing_prefix='solver',
+                        )
 
                     if self.config.trainer.critic_warmup <= self.global_steps:
-                        with marked_timer('update_solver_actor', timing_raw, color='red'):
-                            metrics.update(
-                                self._update_actor_for_branch(
-                                    batch=solver_batch,
-                                    branch_cfg=self.config.actor_rollout_ref,
-                                    actor_rollout_wg=self.actor_rollout_wg,
-                                    ref_policy_wg=self.ref_policy_wg,
-                                    ref_in_actor=self.ref_in_actor,
-                                    use_reference_policy=self.use_reference_policy,
-                                    use_prefix_grouper=self.use_prefix_grouper,
-                                    branch_prefix='actor',
+                        if solver_step_plan['is_update_step']:
+                            with marked_timer('update_solver_actor', timing_raw, color='red'):
+                                metrics.update(
+                                    self._update_actor_for_branch(
+                                        batch=solver_batch,
+                                        branch_cfg=self.config.actor_rollout_ref,
+                                        actor_rollout_wg=self.actor_rollout_wg,
+                                        ref_policy_wg=self.ref_policy_wg,
+                                        ref_in_actor=self.ref_in_actor,
+                                        use_reference_policy=self.use_reference_policy,
+                                        use_prefix_grouper=self.use_prefix_grouper,
+                                        branch_prefix='actor',
+                                    )
                                 )
-                            )
                         with marked_timer('update_abstraction_actor', timing_raw, color='red'):
                             metrics.update(
                                 self._update_actor_for_branch(
@@ -1237,7 +1298,7 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
 
                 metrics.update({'training/global_step': self.global_steps, 'training/epoch': epoch})
                 metrics.update(self._summarize_batches(abstraction_batch, solver_batch))
-                metric_batch = solver_batch if solver_batch is not None and len(solver_batch) > 0 else abstraction_batch
+                metric_batch = solver_batch if self._is_metric_ready_batch(solver_batch) else abstraction_batch
                 metrics.update(compute_data_metrics(batch=metric_batch, use_critic=False))
                 metrics.update(compute_timing_metrics(batch=metric_batch, timing_raw=timing_raw))
                 metrics.update(

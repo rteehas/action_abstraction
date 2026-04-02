@@ -9,6 +9,7 @@ rendered here is mainly for schema compatibility and dataset-side preprocessing.
 
 import argparse
 import json
+import random
 from pathlib import Path
 
 import pyarrow as pa
@@ -29,7 +30,13 @@ def render_template(template: str, problem: str) -> str:
     return template.replace("{{PROBLEM}}", problem)
 
 
-def build_rows(dataset, template: str, min_passrate: float, max_passrate: float, source_dataset: str) -> tuple[list[dict], int]:
+def build_rows(
+    dataset,
+    template: str,
+    min_passrate: float,
+    max_passrate: float,
+    source_dataset: str,
+) -> tuple[list[dict], int]:
     rows = []
     total_rows = len(dataset)
     for source_index, source_row in enumerate(dataset):
@@ -73,6 +80,18 @@ def main() -> None:
     parser.add_argument("--min-passrate", type=float, default=0.25)
     parser.add_argument("--max-passrate", type=float, default=0.75)
     parser.add_argument(
+        "--max-rows",
+        type=int,
+        default=None,
+        help="Optional cap on kept rows after passrate filtering.",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="Seed used when max-rows is set and sampling is required.",
+    )
+    parser.add_argument(
         "--prompt-template",
         default=DEFAULT_TEMPLATE,
         help=(
@@ -99,6 +118,13 @@ def main() -> None:
         max_passrate=args.max_passrate,
         source_dataset=args.source_dataset,
     )
+    filtered_rows = len(rows)
+    if args.max_rows is not None:
+        if args.max_rows < 0:
+            raise ValueError("max-rows must be >= 0")
+        if len(rows) > args.max_rows:
+            rng = random.Random(args.seed)
+            rows = rng.sample(rows, args.max_rows)
 
     train_path = output_dir / "train.parquet"
     write_parquet(rows, train_path)
@@ -110,7 +136,10 @@ def main() -> None:
         "min_passrate": args.min_passrate,
         "max_passrate": args.max_passrate,
         "total_source_rows": total_rows,
+        "filtered_rows": filtered_rows,
         "kept_rows": len(rows),
+        "max_rows": args.max_rows,
+        "seed": args.seed,
     }
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
 
