@@ -41,6 +41,7 @@ if __name__ == "__main__":
         "--local_save_dir", default="/data/deepscaler", help="The save directory for the preprocessed dataset."
     )
     parser.add_argument("--overfitting", action="store_true")
+    parser.add_argument("--all_train", action="store_true")
 
     args = parser.parse_args()
     local_dataset_path = args.local_dataset_path
@@ -58,25 +59,29 @@ if __name__ == "__main__":
     dataset = dataset.filter(lambda ex: ex["abstraction"] is not None)
     dataset = dataset.filter(lambda ex: ex["abstraction"].strip() != "..." and ex["abstraction"].strip() != "")
     if args.overfitting:
-        pts = ['In a new diagram, $A$ is the center of a circle with radii $AB=AC=8$. The sector $BOC$ is shaded except for a triangle $ABC$ within it, where $B$ and $C$ lie on the circle. If the central angle of $BOC$ is $240^\\circ$, what is the perimeter of the shaded region?',
-            'In a new diagram, $A$ is the center of a circle with radii $AB=AC=8$. The sector $BOC$ is shaded except for a triangle $ABC$ within it, where $B$ and $C$ lie on the circle. If the central angle of $BOC$ is $240^\\circ$, what is the perimeter of the shaded region?',
-            'In a new diagram, $A$ is the center of a circle with radii $AB=AC=8$. The sector $BOC$ is shaded except for a triangle $ABC$ within it, where $B$ and $C$ lie on the circle. If the central angle of $BOC$ is $240^\\circ$, what is the perimeter of the shaded region?',
-            'In a new diagram, $A$ is the center of a circle with radii $AB=AC=8$. The sector $BOC$ is shaded except for a triangle $ABC$ within it, where $B$ and $C$ lie on the circle. If the central angle of $BOC$ is $240^\\circ$, what is the perimeter of the shaded region?',
-            'In a new diagram, $A$ is the center of a circle with radii $AB=AC=8$. The sector $BOC$ is shaded except for a triangle $ABC$ within it, where $B$ and $C$ lie on the circle. If the central angle of $BOC$ is $240^\\circ$, what is the perimeter of the shaded region?',
-            'In a new diagram, $A$ is the center of a circle with radii $AB=AC=8$. The sector $BOC$ is shaded except for a triangle $ABC$ within it, where $B$ and $C$ lie on the circle. If the central angle of $BOC$ is $240^\\circ$, what is the perimeter of the shaded region?',
-            'There are 456 natives on an island, each of whom is either a knight who always tells the truth or a liar who always lies. All residents have different heights. Once, each native said, "All other residents are shorter than me!" What is the maximum number of natives who could have then said one minute later, "All other residents are taller than me?"',
-            'There are 456 natives on an island, each of whom is either a knight who always tells the truth or a liar who always lies. All residents have different heights. Once, each native said, "All other residents are shorter than me!" What is the maximum number of natives who could have then said one minute later, "All other residents are taller than me?"',
-            'There are 456 natives on an island, each of whom is either a knight who always tells the truth or a liar who always lies. All residents have different heights. Once, each native said, "All other residents are shorter than me!" What is the maximum number of natives who could have then said one minute later, "All other residents are taller than me?"',
-            'There are 456 natives on an island, each of whom is either a knight who always tells the truth or a liar who always lies. All residents have different heights. Once, each native said, "All other residents are shorter than me!" What is the maximum number of natives who could have then said one minute later, "All other residents are taller than me?"',
-            'There are 456 natives on an island, each of whom is either a knight who always tells the truth or a liar who always lies. All residents have different heights. Once, each native said, "All other residents are shorter than me!" What is the maximum number of natives who could have then said one minute later, "All other residents are taller than me?"',
-            'There are 456 natives on an island, each of whom is either a knight who always tells the truth or a liar who always lies. All residents have different heights. Once, each native said, "All other residents are shorter than me!" What is the maximum number of natives who could have then said one minute later, "All other residents are taller than me?"']
-
-        dataset["train"] = dataset["train"].filter(lambda ex: ex["problem"] in set(pts))
+        dataset["train"] = dataset["train"].shuffle()
+        dataset["train"] = dataset["train"].select([111,1001])
         dataset["test"] = dataset["train"]
+        # pts = ['In a new diagram, $A$ is the center of a circle with radii $AB=AC=8$. The sector $BOC$ is shaded except for a triangle $ABC$ within it, where $B$ and $C$ lie on the circle. If the central angle of $BOC$ is $240^\\circ$, what is the perimeter of the shaded region?',
+        #     'In a new diagram, $A$ is the center of a circle with radii $AB=AC=8$. The sector $BOC$ is shaded except for a triangle $ABC$ within it, where $B$ and $C$ lie on the circle. If the central angle of $BOC$ is $240^\\circ$, what is the perimeter of the shaded region?',
+        #     'In a new diagram, $A$ is the center of a circle with radii $AB=AC=8$. The sector $BOC$ is shaded except for a triangle $ABC$ within it, where $B$ and $C$ lie on the circle. If the central angle of $BOC$ is $240^\\circ$, what is the perimeter of the shaded region?',
+        #     'In a new diagram, $A$ is the center of a circle with radii $AB=AC=8$. The sector $BOC$ is shaded except for a triangle $ABC$ within it, where $B$ and $C$ lie on the circle. If the central angle of $BOC$ is $240^\\circ$, what is the perimeter of the shaded region?',
+        #     'In a new diagram, $A$ is the center of a circle with radii $AB=AC=8$. The sector $BOC$ is shaded except for a triangle $ABC$ within it, where $B$ and $C$ lie on the circle. If the central angle of $BOC$ is $240^\\circ$, what is the perimeter of the shaded region?',
+        #     'In a new diagram, $A$ is the center of a circle with radii $AB=AC=8$. The sector $BOC$ is shaded except for a triangle $ABC$ within it, where $B$ and $C$ lie on the circle. If the central angle of $BOC$ is $240^\\circ$, what is the perimeter of the shaded region?',
+        #     'There are 456 natives on an island, each of whom is either a knight who always tells the truth or a liar who always lies. All residents have different heights. Once, each native said, "All other residents are shorter than me!" What is the maximum number of natives who could have then said one minute later, "All other residents are taller than me?"',
+        #     'There are 456 natives on an island, each of whom is either a knight who always tells the truth or a liar who always lies. All residents have different heights. Once, each native said, "All other residents are shorter than me!" What is the maximum number of natives who could have then said one minute later, "All other residents are taller than me?"',
+        #     'There are 456 natives on an island, each of whom is either a knight who always tells the truth or a liar who always lies. All residents have different heights. Once, each native said, "All other residents are shorter than me!" What is the maximum number of natives who could have then said one minute later, "All other residents are taller than me?"',
+        #     'There are 456 natives on an island, each of whom is either a knight who always tells the truth or a liar who always lies. All residents have different heights. Once, each native said, "All other residents are shorter than me!" What is the maximum number of natives who could have then said one minute later, "All other residents are taller than me?"',
+        #     'There are 456 natives on an island, each of whom is either a knight who always tells the truth or a liar who always lies. All residents have different heights. Once, each native said, "All other residents are shorter than me!" What is the maximum number of natives who could have then said one minute later, "All other residents are taller than me?"',
+        #     'There are 456 natives on an island, each of whom is either a knight who always tells the truth or a liar who always lies. All residents have different heights. Once, each native said, "All other residents are shorter than me!" What is the maximum number of natives who could have then said one minute later, "All other residents are taller than me?"']
 
-    train_dataset = dataset["train"]
-    test_dataset = dataset["test"]
-
+        # dataset["train"] = dataset["train"].filter(lambda ex: ex["problem"] in set(pts))
+        # dataset["test"] = dataset["train"]
+    if "train" in dataset.column_names:
+        train_dataset = dataset["train"]
+        test_dataset = dataset["test"]
+    else:
+        train_dataset = dataset
     # add a row to each data item that represents a unique id
     def make_map_fn(split):
         def process_fn(example, idx):
@@ -106,9 +111,11 @@ if __name__ == "__main__":
             return data
 
         return process_fn
-
-    train_dataset = train_dataset.map(function=make_map_fn("train"), with_indices=True)
-    test_dataset = test_dataset.map(function=make_map_fn("test"), with_indices=True)
+    if "train" in dataset.column_names:
+        train_dataset = train_dataset.map(function=make_map_fn("train"), with_indices=True)
+        test_dataset = test_dataset.map(function=make_map_fn("test"), with_indices=True)
+    else:
+        train_dataset = train_dataset.map(function=make_map_fn("train"), with_indices=True)
 
     hdfs_dir = args.hdfs_dir
     local_save_dir = args.local_dir
@@ -118,7 +125,14 @@ if __name__ == "__main__":
         local_save_dir = args.local_save_dir
         if args.overfitting:
             local_save_dir = local_save_dir + "_overfitting"
-
-    train_dataset.to_parquet(os.path.join(local_save_dir, "train.parquet"))
-    test_dataset.to_parquet(os.path.join(local_save_dir, "test.parquet"))
+    if args.all_train:
+        from datasets import concatenate_datasets
+        all_train = concatenate_datasets([train_dataset, test_dataset])
+        all_train.to_parquet(os.path.join(local_save_dir, "train.parquet"))
+    else:
+        if "train" in dataset.column_names:
+            train_dataset.to_parquet(os.path.join(local_save_dir, "train.parquet"))
+            test_dataset.to_parquet(os.path.join(local_save_dir, "test.parquet"))
+        else:
+            train_dataset.to_parquet(os.path.join(local_save_dir, "train.parquet"))
 

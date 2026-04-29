@@ -53,6 +53,11 @@ def persist_resolved_run_config(config):
 
 
 class TwoPolicyTaskRunner(TaskRunner):
+    def _get_trainer_cls(self):
+        from .two_policy_trainer import TwoPolicyGRPOTrainer
+
+        return TwoPolicyGRPOTrainer
+
     def _add_branch_actor_rollout_worker(self, branch_cfg, role_key: str, pool_name: str):
         from verl.single_controller.ray import RayWorkerGroup
 
@@ -213,9 +218,8 @@ class TwoPolicyTaskRunner(TaskRunner):
         )
         train_sampler = create_rl_sampler(config.data, train_dataset)
 
-        from .two_policy_trainer import TwoPolicyGRPOTrainer
-
-        trainer = TwoPolicyGRPOTrainer(
+        trainer_cls = self._get_trainer_cls()
+        trainer = trainer_cls(
             config=config,
             tokenizer=solver_tokenizer,
             abstraction_tokenizer=abstraction_tokenizer,

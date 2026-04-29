@@ -1,0 +1,34 @@
+defaults:
+  - two_policy_trainer
+  - _self_
+
+two_policy:
+  vm_pruning:
+    enable: False
+    apply_in_validation: False
+    model_path: VGS-AI/DeepSeek-VM-1.5B
+    tokenizer_path: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+    attn_implementation: flash_attention_2
+    torch_dtype: bfloat16
+    device: null
+    device_map: auto
+    scoring_batch_size: 8
+    block_length: 4096
+    offload:
+      enable: False
+      folder: null
+      state_dict: True
+      low_cpu_mem_usage: True
+    solver_update:
+      keep_fraction: 0.5
+      min_keep: 1
+      keep_count: null
+      rounding: ceil
+    abstraction_update:
+      keep_fraction: 0.5
+      min_keep: 1
+      keep_count: null
+      rounding: ceil
+
+trainer:
+  project_name: verl-two-policy-vm-prune

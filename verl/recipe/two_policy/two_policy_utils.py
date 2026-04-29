@@ -29,10 +29,26 @@ def as_object_array(values) -> np.ndarray:
 class AbstractionParseResult:
     raw_text: str
     abstraction: str | None
+    solver_conditioning_abstraction: str | None
     is_valid: bool
     validity_score: float
     failure_reason: str | None
     principle_count: int
+
+
+def strip_abstraction_tags(text: str, open_tag: str, close_tag: str) -> str:
+    return text.replace(open_tag, '\n').replace(close_tag, '\n').strip()
+
+
+def normalize_solver_conditioning_abstraction(text: str | None, invalid_placeholders: tuple[str, ...]) -> str | None:
+    if text is None:
+        return None
+    cleaned = text.strip()
+    if not cleaned:
+        return None
+    if cleaned.lower() in invalid_placeholders:
+        return None
+    return cleaned
 
 
 def parse_abstraction_output(
@@ -46,10 +62,15 @@ def parse_abstraction_output(
 ) -> AbstractionParseResult:
     pattern = re.escape(open_tag) + r'([\s\S]*?)' + re.escape(close_tag)
     matches = re.findall(pattern, text)
+    fallback_solver_abstraction = normalize_solver_conditioning_abstraction(
+        strip_abstraction_tags(text, open_tag, close_tag),
+        invalid_placeholders,
+    )
     if len(matches) != 1:
         return AbstractionParseResult(
             raw_text=text,
             abstraction=None,
+            solver_conditioning_abstraction=fallback_solver_abstraction,
             is_valid=False,
             validity_score=0.0,
             failure_reason='expected_exactly_one_tagged_abstraction',
@@ -57,10 +78,12 @@ def parse_abstraction_output(
         )
 
     abstraction = matches[0].strip()
+    solver_conditioning_abstraction = normalize_solver_conditioning_abstraction(abstraction, invalid_placeholders)
     if len(abstraction) < min_chars:
         return AbstractionParseResult(
             raw_text=text,
             abstraction=abstraction,
+            solver_conditioning_abstraction=solver_conditioning_abstraction,
             is_valid=False,
             validity_score=0.0,
             failure_reason='abstraction_too_short',
@@ -71,6 +94,7 @@ def parse_abstraction_output(
         return AbstractionParseResult(
             raw_text=text,
             abstraction=abstraction,
+            solver_conditioning_abstraction=None,
             is_valid=False,
             validity_score=0.0,
             failure_reason='placeholder_abstraction',
@@ -85,6 +109,7 @@ def parse_abstraction_output(
         return AbstractionParseResult(
             raw_text=text,
             abstraction=abstraction,
+            solver_conditioning_abstraction=solver_conditioning_abstraction,
             is_valid=True,
             validity_score=0.5,
             failure_reason='missing_expected_principle_structure',
@@ -95,6 +120,7 @@ def parse_abstraction_output(
         return AbstractionParseResult(
             raw_text=text,
             abstraction=abstraction,
+            solver_conditioning_abstraction=solver_conditioning_abstraction,
             is_valid=True,
             validity_score=0.5,
             failure_reason='too_many_principles',
@@ -104,6 +130,7 @@ def parse_abstraction_output(
     return AbstractionParseResult(
         raw_text=text,
         abstraction=abstraction,
+        solver_conditioning_abstraction=solver_conditioning_abstraction,
         is_valid=True,
         validity_score=1.0,
         failure_reason=None,

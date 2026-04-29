@@ -2,7 +2,7 @@ import copy
 import json
 import os
 import uuid
-from collections import defaultdict
+from collections import Counter, defaultdict
 from contextlib import contextmanager
 from pprint import pprint
 
@@ -34,6 +34,7 @@ from verl.utils.import_utils import load_class_from_fqn
 from verl.utils.metric import reduce_metrics
 from verl.utils.tracking import Tracking
 
+from .deepseek_vm import DeepSeekVMScorer
 from .main_two_policy_ppo import ABSTRACTION_ACTOR_ROLE, ABSTRACTION_REF_ROLE
 from .two_policy_utils import (
     aggregate_child_rewards,
@@ -107,6 +108,25 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
         self.abstraction_async_rollout_manager = None
         self.abstraction_checkpoint_manager = None
 
+        vm_reward_cfg = self.config.two_policy.get('vm_reward', None)
+        self._vm_reward_cfg = vm_reward_cfg
+        self._vm_reward_scorer = None
+        if vm_reward_cfg is not None and vm_reward_cfg.get('enable', False):
+            offload_cfg = vm_reward_cfg.get('offload', {})
+            self._vm_reward_scorer = DeepSeekVMScorer(
+                model_path=str(vm_reward_cfg.model_path),
+                tokenizer_path=str(vm_reward_cfg.tokenizer_path),
+                torch_dtype=str(vm_reward_cfg.get('torch_dtype', 'bfloat16')),
+                attn_implementation=str(vm_reward_cfg.get('attn_implementation', 'flash_attention_2')),
+                device=vm_reward_cfg.get('device', None),
+                device_map=vm_reward_cfg.get('device_map', None),
+                batch_size=int(vm_reward_cfg.get('scoring_batch_size', 8)),
+                offload_enable=bool(offload_cfg.get('enable', False)),
+                offload_folder=offload_cfg.get('folder', None),
+                offload_state_dict=bool(offload_cfg.get('state_dict', True)),
+                low_cpu_mem_usage=bool(offload_cfg.get('low_cpu_mem_usage', True)),
+            )
+
     @staticmethod
     def _branch_has_internal_ref(branch_cfg) -> bool:
         lora_rank = branch_cfg.model.get('lora', {}).get('rank', 0)
@@ -128,8 +148,26 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
         if schedule_cfg is None or not schedule_cfg.get('enable', False):
             return default_plan
 
-        update_every = max(1, int(schedule_cfg.get('solver_update_every_n_steps', 1)))
-        is_update_step = ((self.global_steps - 1) % update_every) == 0
+        mode = str(schedule_cfg.get('mode', 'periodic')).lower()
+        if mode == 'periodic':
+            update_every = max(1, int(schedule_cfg.get('solver_update_every_n_steps', 1)))
+            is_update_step = ((self.global_steps - 1) % update_every) == 0
+        elif mode == 'alternating_blocks':
+            block_size = max(1, int(schedule_cfg.get('block_size', 1)))
+            block_idx = max(0, (self.global_steps - 1) // block_size)
+            start_with = str(schedule_cfg.get('start_with', 'solver')).lower()
+            if start_with not in {'solver', 'abstraction'}:
+                raise ValueError(
+                    "two_policy.decoupled_solver_schedule.start_with must be either 'solver' or 'abstraction'"
+                )
+            solver_updates_even_blocks = start_with == 'solver'
+            is_update_step = ((block_idx % 2) == 0) == solver_updates_even_blocks
+        else:
+            raise ValueError(
+                "Unsupported two_policy.decoupled_solver_schedule.mode: "
+                f"{schedule_cfg.get('mode')}. Expected 'periodic' or 'alternating_blocks'."
+            )
+
         if is_update_step:
             return default_plan
 
@@ -139,6 +177,39 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
             'temperature': float(schedule_cfg.get('non_update_solver_temperature', 0.0)),
             'top_p': float(schedule_cfg.get('non_update_solver_top_p', 1.0)),
             'top_k': int(schedule_cfg.get('non_update_solver_top_k', -1)),
+        }
+
+    def _get_abstraction_step_plan(self, solver_step_plan=None):
+        rollout_cfg = self.config.abstraction_actor_rollout_ref.rollout
+        default_plan = {
+            'is_update_step': True,
+            'num_rollouts': int(self.config.two_policy.num_abstractions),
+            'temperature': float(rollout_cfg.temperature),
+            'top_p': float(rollout_cfg.get('top_p', 1.0)),
+            'top_k': int(rollout_cfg.get('top_k', 0)),
+        }
+
+        schedule_cfg = self.config.two_policy.get('decoupled_abstraction_schedule', None)
+        if schedule_cfg is None or not schedule_cfg.get('enable', False):
+            return default_plan
+        if not schedule_cfg.get('use_solver_update_complement', True):
+            return default_plan
+
+        solver_schedule_cfg = self.config.two_policy.get('decoupled_solver_schedule', None)
+        if solver_schedule_cfg is None or not solver_schedule_cfg.get('enable', False):
+            return default_plan
+
+        if solver_step_plan is None:
+            solver_step_plan = self._get_solver_step_plan()
+        if not solver_step_plan['is_update_step']:
+            return default_plan
+
+        return {
+            'is_update_step': False,
+            'num_rollouts': max(1, int(schedule_cfg.get('non_update_abstractions', 1))),
+            'temperature': float(schedule_cfg.get('non_update_abstraction_temperature', 0.0)),
+            'top_p': float(schedule_cfg.get('non_update_abstraction_top_p', 1.0)),
+            'top_k': int(schedule_cfg.get('non_update_abstraction_top_k', -1)),
         }
 
     @contextmanager
@@ -194,6 +265,9 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
                 wg_kwargs['worker_nsight_options'] = OmegaConf.to_container(
                     OmegaConf.select(self.config.global_profiler.global_tool_config.nsys, 'worker_nsight_options')
                 )
+        abstraction_master_port_range = OmegaConf.select(self.config.trainer, 'abstraction_master_port_range')
+        if abstraction_master_port_range is not None:
+            wg_kwargs['master_port_range'] = OmegaConf.to_container(abstraction_master_port_range, resolve=True)
 
         worker_dict_cls = create_colocated_worker_cls(class_dict=class_dict)
         wg_dict = self.ray_worker_group_cls(
@@ -312,6 +386,9 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
                 'abstraction_prompt': abstraction_prompts[idx],
                 'abstraction_output': abstraction_texts[idx],
                 'parsed_abstraction': self._jsonable_value(abstraction_batch.non_tensor_batch['parsed_abstraction'][idx]),
+                'solver_conditioning_abstraction': self._jsonable_value(
+                    abstraction_batch.non_tensor_batch['solver_conditioning_abstraction'][idx]
+                ),
                 'abstraction_valid': bool(abstraction_batch.non_tensor_batch['abstraction_valid'][idx]),
                 'abstraction_validity_score': float(abstraction_batch.non_tensor_batch['abstraction_validity_score'][idx]),
                 'abstraction_failure_reason': self._jsonable_value(
@@ -545,6 +622,226 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
         reward_padded = self._compute_reward_colocate(batch_padded)
         return unpad_dataproto(reward_padded, pad_size)
 
+    def _should_use_vm_reward(self) -> bool:
+        return bool(
+            self._vm_reward_cfg is not None
+            and self._vm_reward_cfg.get('enable', False)
+            and self._vm_reward_scorer is not None
+        )
+
+    def _transform_vm_reward_scores(self, vm_probs: np.ndarray) -> np.ndarray:
+        assert self._vm_reward_cfg is not None
+        transform = str(self._vm_reward_cfg.get('transform', 'logit')).lower()
+        if transform == 'raw':
+            return np.asarray(vm_probs, dtype=np.float32)
+        if transform == 'logit':
+            prob_clip = float(self._vm_reward_cfg.get('prob_clip', 1e-4))
+            clipped = np.clip(np.asarray(vm_probs, dtype=np.float32), prob_clip, 1.0 - prob_clip)
+            return np.log(clipped / (1.0 - clipped)).astype(np.float32)
+        raise ValueError(f'Unsupported two_policy.vm_reward.transform: {transform}')
+
+    def _groupwise_zscore(
+        self,
+        values: np.ndarray,
+        group_ids,
+        *,
+        include_mask: np.ndarray | None = None,
+    ) -> np.ndarray:
+        values = np.asarray(values, dtype=np.float32)
+        if len(values) == 0:
+            return values.copy()
+
+        group_ids = np.asarray(group_ids, dtype=object)
+        if include_mask is None:
+            include_mask = np.ones(len(values), dtype=bool)
+        else:
+            include_mask = np.asarray(include_mask, dtype=bool)
+
+        assert self._vm_reward_cfg is not None
+        eps = float(self._vm_reward_cfg.get('zscore_eps', 1e-6))
+        clip_value = self._vm_reward_cfg.get('zscore_clip', None)
+        clip_value = None if clip_value is None else float(clip_value)
+
+        zscores = np.zeros(len(values), dtype=np.float32)
+        seen_groups = set()
+        ordered_groups = []
+        for group_id, keep in zip(group_ids, include_mask, strict=True):
+            if not keep or group_id in seen_groups:
+                continue
+            seen_groups.add(group_id)
+            ordered_groups.append(group_id)
+
+        for group_id in ordered_groups:
+            idx = np.where((group_ids == group_id) & include_mask)[0]
+            if len(idx) <= 1:
+                zscores[idx] = 0.0
+                continue
+
+            group_values = values[idx]
+            sigma = float(group_values.std())
+            if sigma < eps:
+                zscores[idx] = 0.0
+                continue
+            zscores[idx] = (group_values - float(group_values.mean())) / sigma
+
+        if clip_value is not None:
+            zscores[include_mask] = np.clip(zscores[include_mask], -clip_value, clip_value)
+        return zscores
+
+    def _normalize_vm_reward_scores(
+        self,
+        values: np.ndarray,
+        group_ids,
+        *,
+        include_mask: np.ndarray | None = None,
+    ) -> np.ndarray:
+        values = np.asarray(values, dtype=np.float32)
+        if len(values) == 0:
+            return values.copy()
+
+        if include_mask is None:
+            include_mask = np.ones(len(values), dtype=bool)
+        else:
+            include_mask = np.asarray(include_mask, dtype=bool)
+
+        assert self._vm_reward_cfg is not None
+        normalization = str(self._vm_reward_cfg.get('normalization', 'zscore')).lower()
+        if normalization == 'zscore':
+            return self._groupwise_zscore(values, group_ids, include_mask=include_mask)
+        if normalization == 'none':
+            passthrough = np.zeros(len(values), dtype=np.float32)
+            passthrough[include_mask] = values[include_mask]
+            return passthrough
+        raise ValueError(f'Unsupported two_policy.vm_reward.normalization: {normalization}')
+
+    def _combine_vm_reward_with_base(
+        self,
+        base_values: np.ndarray,
+        vm_values: np.ndarray,
+        *,
+        include_mask: np.ndarray | None = None,
+    ) -> np.ndarray:
+        base_values = np.asarray(base_values, dtype=np.float32)
+        vm_values = np.asarray(vm_values, dtype=np.float32)
+        if len(base_values) == 0:
+            return base_values.copy()
+
+        if include_mask is None:
+            include_mask = np.ones(len(base_values), dtype=bool)
+        else:
+            include_mask = np.asarray(include_mask, dtype=bool)
+
+        assert self._vm_reward_cfg is not None
+        combination = str(self._vm_reward_cfg.get('combination', 'add')).lower()
+        combined = base_values.copy()
+        if combination == 'add':
+            combined[include_mask] = base_values[include_mask] + vm_values[include_mask]
+            return combined
+        if combination == 'max':
+            combined[include_mask] = np.maximum(base_values[include_mask], vm_values[include_mask])
+            return combined
+        raise ValueError(f'Unsupported two_policy.vm_reward.combination: {combination}')
+
+    def _combine_terminal_bonus(
+        self,
+        reward_tensor: torch.Tensor,
+        response_mask: torch.Tensor,
+        bonus_values: np.ndarray,
+    ) -> None:
+        if reward_tensor.numel() == 0 or len(bonus_values) == 0:
+            return
+
+        valid_lengths = response_mask.sum(dim=1)
+        nonempty_rows = valid_lengths > 0
+        if not bool(nonempty_rows.any()):
+            return
+
+        row_idx = torch.nonzero(nonempty_rows, as_tuple=False).squeeze(-1)
+        last_token_idx = valid_lengths[row_idx].long() - 1
+        base_terminal = reward_tensor[row_idx, last_token_idx].detach().float().cpu().numpy().astype(np.float32)
+        vm_terminal = np.asarray(bonus_values, dtype=np.float32)[row_idx.cpu().numpy()]
+        combined_terminal = self._combine_vm_reward_with_base(base_terminal, vm_terminal)
+        reward_tensor[row_idx, last_token_idx] = torch.as_tensor(
+            combined_terminal,
+            device=reward_tensor.device,
+            dtype=reward_tensor.dtype,
+        )
+
+    def _compute_vm_reward_terms(
+        self,
+        abstraction_batch: DataProto,
+        solver_batch: DataProto,
+    ) -> dict[str, np.ndarray] | None:
+        if not self._should_use_vm_reward() or solver_batch is None or len(solver_batch) == 0:
+            return None
+
+        response_mask = compute_response_mask(solver_batch)
+        response_lengths = response_mask.sum(dim=1).cpu().numpy().astype(np.int32)
+        decoded_responses = self._decode_responses(solver_batch, self.tokenizer)
+
+        vm_probs = np.zeros(len(solver_batch), dtype=np.float32)
+        vm_observed_tokens = np.zeros(len(solver_batch), dtype=np.int32)
+        indices_to_score = [idx for idx, response_length in enumerate(response_lengths) if int(response_length) > 0]
+        if indices_to_score:
+            problems = [str(solver_batch.non_tensor_batch['problem'][idx]) for idx in indices_to_score]
+            responses = [decoded_responses[idx] for idx in indices_to_score]
+            scored_probs, observed_tokens = self._vm_reward_scorer.score_partial_texts(
+                problems=problems,
+                responses=responses,
+            )
+            score_idx = np.asarray(indices_to_score, dtype=np.int32)
+            vm_probs[score_idx] = np.asarray(scored_probs, dtype=np.float32)
+            vm_observed_tokens[score_idx] = np.asarray(observed_tokens, dtype=np.int32)
+
+        transformed_scores = self._transform_vm_reward_scores(vm_probs)
+        solver_signal = self._normalize_vm_reward_scores(
+            transformed_scores,
+            solver_batch.non_tensor_batch['abstraction_uid'],
+        )
+        solver_bonus = solver_signal * float(self._vm_reward_cfg.get('solver_weight', 0.0))
+
+        child_prob_scores = defaultdict(list)
+        child_value_scores = defaultdict(list)
+        for abstraction_uid, vm_prob, transformed_score in zip(
+            solver_batch.non_tensor_batch['abstraction_uid'],
+            vm_probs,
+            transformed_scores,
+            strict=True,
+        ):
+            child_prob_scores[abstraction_uid].append(float(vm_prob))
+            child_value_scores[abstraction_uid].append(float(transformed_score))
+
+        abstraction_vm_prob_mean = np.zeros(len(abstraction_batch), dtype=np.float32)
+        abstraction_vm_value_mean = np.zeros(len(abstraction_batch), dtype=np.float32)
+        abstraction_has_vm = np.zeros(len(abstraction_batch), dtype=bool)
+        for idx, abstraction_uid in enumerate(abstraction_batch.non_tensor_batch['abstraction_uid']):
+            prob_values = child_prob_scores.get(abstraction_uid)
+            value_scores = child_value_scores.get(abstraction_uid)
+            if not prob_values or not value_scores:
+                continue
+            abstraction_vm_prob_mean[idx] = float(np.mean(prob_values))
+            abstraction_vm_value_mean[idx] = float(np.mean(value_scores))
+            abstraction_has_vm[idx] = True
+
+        abstraction_signal = self._normalize_vm_reward_scores(
+            abstraction_vm_value_mean,
+            abstraction_batch.non_tensor_batch['problem_uid'],
+            include_mask=abstraction_has_vm,
+        )
+        abstraction_bonus = abstraction_signal * float(self._vm_reward_cfg.get('abstraction_weight', 0.0))
+
+        return {
+            'vm_score': vm_probs,
+            'vm_observed_tokens': vm_observed_tokens,
+            'vm_transformed_score': transformed_scores,
+            'vm_solver_zscore': solver_signal,
+            'vm_solver_bonus': solver_bonus,
+            'vm_abstraction_prob_mean': abstraction_vm_prob_mean,
+            'vm_abstraction_value_mean': abstraction_vm_value_mean,
+            'vm_abstraction_zscore': abstraction_signal,
+            'vm_abstraction_bonus': abstraction_bonus,
+        }
+
     @staticmethod
     def _validity_bonus(validity_score: float, cfg) -> float:
         if validity_score >= 1.0:
@@ -553,6 +850,91 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
             return cfg.malformed
         return cfg.invalid
 
+    def _get_control_abstraction_cfg(self):
+        return self.config.two_policy.get('control_abstraction', None)
+
+    def _should_add_control_abstraction(self, *, validate: bool) -> bool:
+        control_cfg = self._get_control_abstraction_cfg()
+        if control_cfg is None or not control_cfg.get('enable', False):
+            return False
+        if validate and not control_cfg.get('include_in_validation', False):
+            return False
+        return True
+
+    def _get_control_abstraction_text(self) -> str:
+        control_cfg = self._get_control_abstraction_cfg()
+        control_text = '' if control_cfg is None else str(control_cfg.get('text', ''))
+        control_text = control_text.strip()
+        if not control_text:
+            raise ValueError(
+                'two_policy.control_abstraction.text must be non-empty when the control abstraction is enabled'
+            )
+        return control_text
+
+    @staticmethod
+    def _first_index_for_each_problem(problem_uids) -> list[int]:
+        first_indices = []
+        seen_problem_uids = set()
+        for idx, problem_uid in enumerate(problem_uids):
+            if problem_uid in seen_problem_uids:
+                continue
+            seen_problem_uids.add(problem_uid)
+            first_indices.append(idx)
+        return first_indices
+
+    def _build_control_solver_batch(
+        self,
+        abstraction_batch: DataProto,
+        num_solver_rollouts: int,
+    ) -> DataProto | None:
+        if abstraction_batch is None or len(abstraction_batch) == 0:
+            return None
+
+        control_problem_idxs = self._first_index_for_each_problem(abstraction_batch.non_tensor_batch['problem_uid'])
+        if not control_problem_idxs:
+            return None
+
+        control_seed_batch = abstraction_batch.select_idxs(control_problem_idxs)
+        control_batch = self._build_rollout_input(
+            control_seed_batch.repeat(repeat_times=num_solver_rollouts, interleave=True)
+        )
+        control_text = self._get_control_abstraction_text()
+        control_abstraction_uids = as_object_array(str(uuid.uuid4()) for _ in range(len(control_seed_batch)))
+
+        control_batch.non_tensor_batch['abstraction_uid'] = np.repeat(
+            control_abstraction_uids,
+            num_solver_rollouts,
+            axis=0,
+        )
+        control_batch.non_tensor_batch['abstraction_text'] = as_object_array(
+            control_text for _ in range(len(control_batch))
+        )
+        control_batch.non_tensor_batch['parsed_abstraction'] = as_object_array(
+            control_text for _ in range(len(control_batch))
+        )
+        control_batch.non_tensor_batch['solver_conditioning_abstraction'] = as_object_array(
+            control_text for _ in range(len(control_batch))
+        )
+        control_batch.non_tensor_batch['abstraction_valid'] = np.ones(len(control_batch), dtype=bool)
+        control_batch.non_tensor_batch['abstraction_validity_score'] = np.ones(len(control_batch), dtype=np.float32)
+        control_batch.non_tensor_batch['abstraction_failure_reason'] = as_object_array(
+            None for _ in range(len(control_batch))
+        )
+        control_batch.non_tensor_batch['abstraction_principle_count'] = np.zeros(len(control_batch), dtype=np.int32)
+        control_batch.non_tensor_batch['is_control_abstraction'] = np.ones(len(control_batch), dtype=bool)
+        control_batch.non_tensor_batch['uid'] = control_batch.non_tensor_batch['abstraction_uid'].copy()
+        control_batch.non_tensor_batch['raw_prompt'] = as_object_array(
+            build_single_turn_chat(
+                render_template(
+                    self.solver_prompt_template,
+                    problem=problem,
+                    abstraction=control_text,
+                )
+            )
+            for problem in control_batch.non_tensor_batch['problem']
+        )
+        return control_batch
+
     def _run_two_policy_rollouts(
         self,
         batch: DataProto,
@@ -560,6 +942,13 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
         do_profile: bool,
         num_abstractions: int,
         num_solver_rollouts: int,
+        validate: bool = False,
+        manage_replica_lifecycle: bool = True,
+        abstraction_do_sample: bool | None = None,
+        abstraction_temperature: float | None = None,
+        abstraction_top_p: float | None = None,
+        abstraction_top_k: int | None = None,
+        solver_do_sample: bool | None = None,
         solver_response_length: int | None = None,
         solver_temperature: float | None = None,
         solver_top_p: float | None = None,
@@ -570,16 +959,36 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
             problem_batch.repeat(repeat_times=num_abstractions, interleave=True)
         )
         abstraction_batch.meta_info['global_steps'] = self.global_steps
-        abstraction_batch.meta_info['temperature'] = self.config.abstraction_actor_rollout_ref.rollout.temperature
+        abstraction_batch.meta_info['temperature'] = (
+            self.config.abstraction_actor_rollout_ref.rollout.temperature
+            if abstraction_temperature is None
+            else abstraction_temperature
+        )
+        abstraction_batch.meta_info['top_p'] = (
+            self.config.abstraction_actor_rollout_ref.rollout.get('top_p', 1.0)
+            if abstraction_top_p is None
+            else abstraction_top_p
+        )
+        abstraction_batch.meta_info['top_k'] = (
+            self.config.abstraction_actor_rollout_ref.rollout.get('top_k', 0)
+            if abstraction_top_k is None
+            else abstraction_top_k
+        )
+        if validate:
+            abstraction_batch.meta_info['validate'] = True
+        if abstraction_do_sample is not None:
+            abstraction_batch.meta_info['do_sample'] = bool(abstraction_do_sample)
 
-        # Solver replicas are kept asleep between rollouts and updates.
-        # Calling sleep() again here can issue a second sleep RPC to an already
-        # sleeping vLLM engine and kill the server during validation startup.
-        self.abstraction_checkpoint_manager.update_weights()
+        # Validation can run many rollout batches without weight changes.
+        # Keeping replicas awake across the whole validation pass avoids
+        # repeated wake/sleep RPCs and cache churn on every val batch.
+        if manage_replica_lifecycle:
+            self.abstraction_checkpoint_manager.update_weights()
         abstraction_outputs = self._generate_sequences_padded(
             self.abstraction_async_rollout_manager, abstraction_batch, timing_raw, do_profile
         )
-        self.abstraction_checkpoint_manager.sleep_replicas()
+        if manage_replica_lifecycle:
+            self.abstraction_checkpoint_manager.sleep_replicas()
         abstraction_outputs = self._drop_overlapping_non_tensor_keys(abstraction_batch, abstraction_outputs)
         abstraction_batch = abstraction_batch.union(abstraction_outputs)
 
@@ -603,6 +1012,9 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
         abstraction_batch.non_tensor_batch['parsed_abstraction'] = as_object_array(
             result.abstraction for result in parse_results
         )
+        abstraction_batch.non_tensor_batch['solver_conditioning_abstraction'] = as_object_array(
+            result.solver_conditioning_abstraction for result in parse_results
+        )
         abstraction_batch.non_tensor_batch['abstraction_valid'] = np.asarray(
             [result.is_valid for result in parse_results], dtype=bool
         )
@@ -615,19 +1027,25 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
         abstraction_batch.non_tensor_batch['abstraction_principle_count'] = np.asarray(
             [result.principle_count for result in parse_results], dtype=np.int32
         )
+        abstraction_batch.non_tensor_batch['is_control_abstraction'] = np.zeros(len(abstraction_batch), dtype=bool)
         abstraction_batch.non_tensor_batch['uid'] = abstraction_batch.non_tensor_batch['problem_uid'].copy()
 
-        valid_idxs = np.where(abstraction_batch.non_tensor_batch['abstraction_valid'])[0].tolist()
+        solver_ready_idxs = [
+            idx
+            for idx, abstraction in enumerate(abstraction_batch.non_tensor_batch['solver_conditioning_abstraction'])
+            if abstraction is not None
+        ]
         solver_batch = None
         reward_extra_infos = {}
         solver_scalar_rewards = {}
         aggregated_extra_metrics = defaultdict(dict)
+        vm_reward_terms = None
 
-        if valid_idxs:
-            solver_batch = self._build_rollout_input(
-                abstraction_batch.select_idxs(valid_idxs).repeat(repeat_times=num_solver_rollouts, interleave=True)
+        if solver_ready_idxs:
+            candidate_solver_batch = self._build_rollout_input(
+                abstraction_batch.select_idxs(solver_ready_idxs).repeat(repeat_times=num_solver_rollouts, interleave=True)
             )
-            solver_batch.non_tensor_batch['raw_prompt'] = as_object_array(
+            candidate_solver_batch.non_tensor_batch['raw_prompt'] = as_object_array(
                 build_single_turn_chat(
                     render_template(
                         self.solver_prompt_template,
@@ -636,12 +1054,37 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
                     )
                 )
                 for problem, abstraction in zip(
-                    solver_batch.non_tensor_batch['problem'],
-                    solver_batch.non_tensor_batch['parsed_abstraction'],
+                    candidate_solver_batch.non_tensor_batch['problem'],
+                    candidate_solver_batch.non_tensor_batch['solver_conditioning_abstraction'],
                     strict=True,
                 )
             )
-            solver_batch.non_tensor_batch['uid'] = solver_batch.non_tensor_batch['abstraction_uid'].copy()
+            candidate_solver_batch.non_tensor_batch['uid'] = candidate_solver_batch.non_tensor_batch[
+                'abstraction_uid'
+            ].copy()
+        else:
+            candidate_solver_batch = None
+
+        control_solver_batch = None
+        if self._should_add_control_abstraction(validate=validate):
+            control_solver_batch = self._build_control_solver_batch(
+                abstraction_batch=abstraction_batch,
+                num_solver_rollouts=num_solver_rollouts,
+            )
+            if not solver_ready_idxs and control_solver_batch is not None:
+                print(
+                    f'Warning: all {len(abstraction_batch)} abstractions were unusable for solver conditioning, '
+                    'falling back to the control abstraction solver group only'
+                )
+
+        if candidate_solver_batch is not None and control_solver_batch is not None:
+            solver_batch = DataProto.concat([candidate_solver_batch, control_solver_batch])
+        elif candidate_solver_batch is not None:
+            solver_batch = candidate_solver_batch
+        elif control_solver_batch is not None:
+            solver_batch = control_solver_batch
+
+        if solver_batch is not None and len(solver_batch) > 0:
             solver_batch.meta_info['global_steps'] = self.global_steps
             solver_batch.meta_info['temperature'] = (
                 self.config.actor_rollout_ref.rollout.temperature if solver_temperature is None else solver_temperature
@@ -652,12 +1095,18 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
             solver_batch.meta_info['top_k'] = (
                 self.config.actor_rollout_ref.rollout.get('top_k', 0) if solver_top_k is None else solver_top_k
             )
+            if validate:
+                solver_batch.meta_info['validate'] = True
+            if solver_do_sample is not None:
+                solver_batch.meta_info['do_sample'] = bool(solver_do_sample)
             if solver_response_length is not None:
                 solver_batch.meta_info['response_length'] = solver_response_length
 
-            self.checkpoint_manager.update_weights()
+            if manage_replica_lifecycle:
+                self.checkpoint_manager.update_weights()
             solver_outputs = self._generate_sequences_padded(self.async_rollout_manager, solver_batch, timing_raw, do_profile)
-            self.checkpoint_manager.sleep_replicas()
+            if manage_replica_lifecycle:
+                self.checkpoint_manager.sleep_replicas()
             solver_outputs = self._drop_overlapping_non_tensor_keys(solver_batch, solver_outputs)
             solver_batch = solver_batch.union(solver_outputs)
 
@@ -665,6 +1114,18 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
             solver_batch = solver_batch.union(reward_batch)
             reward_tensor, reward_extra_infos = extract_reward(solver_batch)
             solver_batch.batch['response_mask'] = compute_response_mask(solver_batch)
+            vm_reward_terms = self._compute_vm_reward_terms(abstraction_batch=abstraction_batch, solver_batch=solver_batch)
+            if vm_reward_terms is not None:
+                self._combine_terminal_bonus(
+                    reward_tensor,
+                    solver_batch.batch['response_mask'],
+                    vm_reward_terms['vm_solver_bonus'],
+                )
+                solver_batch.non_tensor_batch['vm_score'] = vm_reward_terms['vm_score']
+                solver_batch.non_tensor_batch['vm_observed_tokens'] = vm_reward_terms['vm_observed_tokens']
+                solver_batch.non_tensor_batch['vm_transformed_score'] = vm_reward_terms['vm_transformed_score']
+                solver_batch.non_tensor_batch['vm_solver_zscore'] = vm_reward_terms['vm_solver_zscore']
+                solver_batch.non_tensor_batch['vm_solver_bonus'] = vm_reward_terms['vm_solver_bonus']
             solver_batch.batch['token_level_scores'] = reward_tensor
             solver_batch.non_tensor_batch['seq_reward'] = reward_tensor.sum(dim=-1).cpu().numpy().astype(np.float32)
             solver_batch.non_tensor_batch['seq_final_reward'] = solver_batch.non_tensor_batch['seq_reward'].copy()
@@ -688,16 +1149,40 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
                     for abstraction_uid, metric_values in grouped_values.items():
                         aggregated_extra_metrics[key][abstraction_uid] = float(np.mean(metric_values))
         else:
-            print(f'Warning: all {len(abstraction_batch)} abstractions were invalid, solver update skipped')
+            if control_solver_batch is None:
+                print(
+                    f'Warning: all {len(abstraction_batch)} abstractions were unusable for solver conditioning, '
+                    'solver update skipped'
+                )
 
         abstraction_rewards = []
         downstream_rewards = []
         validity_bonuses = []
-        for abstraction_uid, validity_score in zip(
+        abstraction_vm_bonus = (
+            vm_reward_terms['vm_abstraction_bonus']
+            if vm_reward_terms is not None
+            else np.zeros(len(abstraction_batch), dtype=np.float32)
+        )
+        abstraction_vm_prob_mean = (
+            vm_reward_terms['vm_abstraction_prob_mean']
+            if vm_reward_terms is not None
+            else np.zeros(len(abstraction_batch), dtype=np.float32)
+        )
+        abstraction_vm_value_mean = (
+            vm_reward_terms['vm_abstraction_value_mean']
+            if vm_reward_terms is not None
+            else np.zeros(len(abstraction_batch), dtype=np.float32)
+        )
+        abstraction_vm_zscore = (
+            vm_reward_terms['vm_abstraction_zscore']
+            if vm_reward_terms is not None
+            else np.zeros(len(abstraction_batch), dtype=np.float32)
+        )
+        for idx, (abstraction_uid, validity_score) in enumerate(zip(
             abstraction_batch.non_tensor_batch['abstraction_uid'],
             abstraction_batch.non_tensor_batch['abstraction_validity_score'],
             strict=True,
-        ):
+        )):
             child_rewards = solver_scalar_rewards.get(abstraction_uid, [])
             downstream_reward = aggregate_child_rewards(
                 child_rewards,
@@ -708,7 +1193,11 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
             validity_bonus = self._validity_bonus(validity_score, self.config.two_policy.validity_reward)
             downstream_rewards.append(downstream_reward)
             validity_bonuses.append(validity_bonus)
-            abstraction_rewards.append(downstream_reward + validity_bonus)
+            combined_reward = self._combine_vm_reward_with_base(
+                np.asarray([downstream_reward], dtype=np.float32),
+                np.asarray([abstraction_vm_bonus[idx]], dtype=np.float32),
+            )[0]
+            abstraction_rewards.append(float(combined_reward) + validity_bonus)
 
         abstraction_batch.batch['response_mask'] = compute_response_mask(abstraction_batch)
         abstraction_batch.batch['token_level_scores'] = build_scalar_reward_tensor(
@@ -723,6 +1212,10 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
         abstraction_batch.non_tensor_batch['abstraction_validity_bonus'] = np.asarray(
             validity_bonuses, dtype=np.float32
         )
+        abstraction_batch.non_tensor_batch['vm_abstraction_prob_mean'] = abstraction_vm_prob_mean
+        abstraction_batch.non_tensor_batch['vm_abstraction_value_mean'] = abstraction_vm_value_mean
+        abstraction_batch.non_tensor_batch['vm_abstraction_zscore'] = abstraction_vm_zscore
+        abstraction_batch.non_tensor_batch['vm_abstraction_bonus'] = abstraction_vm_bonus
 
         for key, abstraction_uid_to_value in aggregated_extra_metrics.items():
             abstraction_batch.non_tensor_batch[key] = np.asarray(
@@ -917,10 +1410,61 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
                 np.mean(abstraction_batch.non_tensor_batch['abstraction_downstream_reward'])
             ),
         }
+        if 'vm_abstraction_bonus' in abstraction_batch.non_tensor_batch:
+            metrics['two_policy/vm_abstraction_bonus_mean'] = float(
+                np.mean(abstraction_batch.non_tensor_batch['vm_abstraction_bonus'])
+            )
+            metrics['two_policy/vm_abstraction_prob_mean'] = float(
+                np.mean(abstraction_batch.non_tensor_batch['vm_abstraction_prob_mean'])
+            )
         if solver_batch is not None and len(solver_batch) > 0:
-            metrics['two_policy/solver_reward_mean'] = float(np.mean(solver_batch.non_tensor_batch['seq_final_reward']))
+            solver_rewards = np.asarray(solver_batch.non_tensor_batch['seq_final_reward'], dtype=np.float32)
+            control_mask = None
+            generated_mask = None
+            if 'is_control_abstraction' in solver_batch.non_tensor_batch:
+                control_mask = np.asarray(solver_batch.non_tensor_batch['is_control_abstraction'], dtype=bool)
+                generated_mask = ~control_mask
+                metrics['two_policy/solver_control_group_count'] = len(
+                    set(solver_batch.non_tensor_batch['abstraction_uid'][control_mask].tolist())
+                )
+                metrics['two_policy/solver_control_rollout_count'] = int(control_mask.sum())
+                if control_mask.any():
+                    metrics['two_policy/solver_control_reward_mean'] = float(np.mean(solver_rewards[control_mask]))
+            if generated_mask is not None:
+                metrics['two_policy/solver_reward_mean'] = (
+                    float(np.mean(solver_rewards[generated_mask])) if generated_mask.any() else 0.0
+                )
+                metrics['two_policy/solver_generated_rollout_count'] = int(generated_mask.sum())
+            else:
+                metrics['two_policy/solver_reward_mean'] = float(np.mean(solver_rewards))
             if 'acc' in solver_batch.non_tensor_batch:
-                metrics['two_policy/solver_acc_mean'] = float(np.mean(solver_batch.non_tensor_batch['acc']))
+                solver_acc = np.asarray(solver_batch.non_tensor_batch['acc'], dtype=np.float32)
+                if generated_mask is not None:
+                    metrics['two_policy/solver_acc_mean'] = (
+                        float(np.mean(solver_acc[generated_mask])) if generated_mask.any() else 0.0
+                    )
+                    if control_mask.any():
+                        metrics['two_policy/solver_control_acc_mean'] = float(np.mean(solver_acc[control_mask]))
+                else:
+                    metrics['two_policy/solver_acc_mean'] = float(np.mean(solver_acc))
+            if 'vm_score' in solver_batch.non_tensor_batch:
+                vm_scores = np.asarray(solver_batch.non_tensor_batch['vm_score'], dtype=np.float32)
+                vm_solver_bonus = np.asarray(solver_batch.non_tensor_batch['vm_solver_bonus'], dtype=np.float32)
+                if generated_mask is not None:
+                    metrics['two_policy/vm_score_mean'] = (
+                        float(np.mean(vm_scores[generated_mask])) if generated_mask.any() else 0.0
+                    )
+                    metrics['two_policy/vm_solver_bonus_mean'] = (
+                        float(np.mean(vm_solver_bonus[generated_mask])) if generated_mask.any() else 0.0
+                    )
+                    if control_mask.any():
+                        metrics['two_policy/solver_control_vm_score_mean'] = float(np.mean(vm_scores[control_mask]))
+                        metrics['two_policy/solver_control_vm_bonus_mean'] = float(
+                            np.mean(vm_solver_bonus[control_mask])
+                        )
+                else:
+                    metrics['two_policy/vm_score_mean'] = float(np.mean(vm_scores))
+                    metrics['two_policy/vm_solver_bonus_mean'] = float(np.mean(vm_solver_bonus))
         else:
             metrics['two_policy/solver_reward_mean'] = 0.0
         return metrics
@@ -932,12 +1476,92 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
         required_keys = {'token_level_rewards', 'advantages', 'returns'}
         return required_keys.issubset(set(batch.batch.keys()))
 
+    def _build_missing_ppo_batch_error(
+        self,
+        *,
+        abstraction_batch: DataProto | None,
+        solver_batch: DataProto | None,
+        abstraction_step_plan: dict,
+        solver_step_plan: dict,
+    ) -> str:
+        abstraction_size = 0 if abstraction_batch is None else len(abstraction_batch)
+        solver_size = 0 if solver_batch is None else len(solver_batch)
+        abstraction_ready = self._is_metric_ready_batch(abstraction_batch)
+        solver_ready = self._is_metric_ready_batch(solver_batch)
+
+        unique_problem_count = 0
+        solver_conditioning_count = 0
+        valid_abstraction_count = 0
+        valid_problem_count = 0
+        failure_reason_counts = Counter()
+        if abstraction_batch is not None and len(abstraction_batch) > 0:
+            if 'problem_uid' in abstraction_batch.non_tensor_batch:
+                unique_problem_count = len(set(abstraction_batch.non_tensor_batch['problem_uid'].tolist()))
+            if 'solver_conditioning_abstraction' in abstraction_batch.non_tensor_batch:
+                solver_conditioning_count = sum(
+                    abstraction is not None
+                    for abstraction in abstraction_batch.non_tensor_batch['solver_conditioning_abstraction'].tolist()
+                )
+            if 'abstraction_valid' in abstraction_batch.non_tensor_batch:
+                valid_mask = np.asarray(abstraction_batch.non_tensor_batch['abstraction_valid'], dtype=bool)
+                valid_abstraction_count = int(valid_mask.sum())
+                if 'problem_uid' in abstraction_batch.non_tensor_batch and valid_abstraction_count > 0:
+                    valid_problem_count = len(set(abstraction_batch.non_tensor_batch['problem_uid'][valid_mask].tolist()))
+            if 'abstraction_failure_reason' in abstraction_batch.non_tensor_batch:
+                failure_reason_counts = Counter(
+                    str(reason)
+                    for reason in abstraction_batch.non_tensor_batch['abstraction_failure_reason'].tolist()
+                    if reason is not None
+                )
+
+        solver_problem_count = 0
+        if solver_batch is not None and len(solver_batch) > 0 and 'problem_uid' in solver_batch.non_tensor_batch:
+            solver_problem_count = len(set(solver_batch.non_tensor_batch['problem_uid'].tolist()))
+
+        failure_reason_summary = ', '.join(
+            f'{reason}={count}' for reason, count in failure_reason_counts.most_common()
+        ) or 'none'
+
+        return (
+            'No PPO-ready batch was available at the end of the training step.\n'
+            f'global_step={self.global_steps}\n'
+            f'abstraction_step_plan={json.dumps(abstraction_step_plan, sort_keys=True)}\n'
+            f'solver_step_plan={json.dumps(solver_step_plan, sort_keys=True)}\n'
+            f'abstraction_batch_size={abstraction_size}, abstraction_batch_ppo_ready={abstraction_ready}\n'
+            f'solver_batch_size={solver_size}, solver_batch_ppo_ready={solver_ready}\n'
+            f'unique_problem_count={unique_problem_count}, '
+            f'solver_conditioning_count={solver_conditioning_count}, '
+            f'valid_abstraction_count={valid_abstraction_count}, '
+            f'valid_problem_count={valid_problem_count}, '
+            f'solver_problem_count={solver_problem_count}\n'
+            f'abstraction_failure_reasons={failure_reason_summary}\n'
+            'PPO metrics require token_level_rewards, advantages, and returns, which are added only after '
+            '_prepare_branch_batch(). This usually means no abstractions were usable for solver conditioning, '
+            'or later filtering removed every solver group on a solver-update step.'
+        )
+
     def _validate(self, merged: bool = False):
         del merged
         num_abstractions = self.config.two_policy.validation_num_abstractions
         num_solver_rollouts = self.config.two_policy.validation_num_solver_rollouts
         solver_response_length = self.config.two_policy.validation_solver_response_length
+        abstraction_val_cfg = self.config.abstraction_actor_rollout_ref.rollout.get('val_kwargs', None)
+        solver_val_cfg = self.config.actor_rollout_ref.rollout.get('val_kwargs', None)
         val_data_dir = self.config.trainer.get('validation_data_dir', None)
+
+        abstraction_do_sample = (
+            bool(abstraction_val_cfg.get('do_sample', False)) if abstraction_val_cfg is not None else None
+        )
+        abstraction_temperature = (
+            float(abstraction_val_cfg.get('temperature', 0.0)) if abstraction_val_cfg is not None else None
+        )
+        abstraction_top_p = float(abstraction_val_cfg.get('top_p', 1.0)) if abstraction_val_cfg is not None else None
+        abstraction_top_k = int(abstraction_val_cfg.get('top_k', -1)) if abstraction_val_cfg is not None else None
+
+        solver_do_sample = bool(solver_val_cfg.get('do_sample', False)) if solver_val_cfg is not None else None
+        solver_temperature = float(solver_val_cfg.get('temperature', 0.0)) if solver_val_cfg is not None else None
+        solver_top_p = float(solver_val_cfg.get('top_p', 1.0)) if solver_val_cfg is not None else None
+        solver_top_k = int(solver_val_cfg.get('top_k', -1)) if solver_val_cfg is not None else None
 
         problem_best_rewards = []
         problem_mean_rewards = []
@@ -953,78 +1577,94 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
         source_abstraction_validities = defaultdict(list)
         source_names = set()
 
-        for batch_dict in self.val_dataloader:
-            batch = DataProto.from_single_dict(batch_dict)
-            abstraction_batch, solver_batch = self._run_two_policy_rollouts(
-                batch=batch,
-                timing_raw=defaultdict(float),
-                do_profile=False,
-                num_abstractions=num_abstractions,
-                num_solver_rollouts=num_solver_rollouts,
-                solver_response_length=solver_response_length,
-            )
-            if val_data_dir:
-                validation_dump_entries.extend(
-                    self._collect_two_policy_validation_rollouts(
-                        abstraction_batch=abstraction_batch,
-                        solver_batch=solver_batch,
-                    )
+        self.abstraction_checkpoint_manager.update_weights()
+        self.checkpoint_manager.update_weights()
+        try:
+            for batch_dict in self.val_dataloader:
+                batch = DataProto.from_single_dict(batch_dict)
+                abstraction_batch, solver_batch = self._run_two_policy_rollouts(
+                    batch=batch,
+                    timing_raw=defaultdict(float),
+                    do_profile=False,
+                    num_abstractions=num_abstractions,
+                    num_solver_rollouts=num_solver_rollouts,
+                    validate=True,
+                    manage_replica_lifecycle=False,
+                    abstraction_do_sample=abstraction_do_sample,
+                    abstraction_temperature=abstraction_temperature,
+                    abstraction_top_p=abstraction_top_p,
+                    abstraction_top_k=abstraction_top_k,
+                    solver_do_sample=solver_do_sample,
+                    solver_response_length=solver_response_length,
+                    solver_temperature=solver_temperature,
+                    solver_top_p=solver_top_p,
+                    solver_top_k=solver_top_k,
                 )
+                if val_data_dir:
+                    validation_dump_entries.extend(
+                        self._collect_two_policy_validation_rollouts(
+                            abstraction_batch=abstraction_batch,
+                            solver_batch=solver_batch,
+                        )
+                    )
 
-            abstraction_valid_array = abstraction_batch.non_tensor_batch['abstraction_valid'].astype(np.float32)
-            abstraction_validities.extend(abstraction_valid_array.tolist())
+                abstraction_valid_array = abstraction_batch.non_tensor_batch['abstraction_valid'].astype(np.float32)
+                abstraction_validities.extend(abstraction_valid_array.tolist())
 
-            batch_sources = abstraction_batch.non_tensor_batch.get('data_source')
-            if batch_sources is None:
-                batch_sources = np.asarray(['unknown'] * len(abstraction_batch), dtype=object)
-            normalized_sources = [str(source).strip().lower().replace(' ', '_') for source in batch_sources]
-            source_names.update(normalized_sources)
-            for source, is_valid in zip(normalized_sources, abstraction_valid_array, strict=True):
-                source_abstraction_validities[source].append(float(is_valid))
+                batch_sources = abstraction_batch.non_tensor_batch.get('data_source')
+                if batch_sources is None:
+                    batch_sources = np.asarray(['unknown'] * len(abstraction_batch), dtype=object)
+                normalized_sources = [str(source).strip().lower().replace(' ', '_') for source in batch_sources]
+                source_names.update(normalized_sources)
+                for source, is_valid in zip(normalized_sources, abstraction_valid_array, strict=True):
+                    source_abstraction_validities[source].append(float(is_valid))
 
-            problem_uids = abstraction_batch.non_tensor_batch['problem_uid']
-            unique_problem_uids = []
-            problem_source = {}
-            seen = set()
-            for idx, uid in enumerate(problem_uids):
-                if uid not in seen:
-                    unique_problem_uids.append(uid)
-                    problem_source[uid] = normalized_sources[idx]
-                    seen.add(uid)
+                problem_uids = abstraction_batch.non_tensor_batch['problem_uid']
+                unique_problem_uids = []
+                problem_source = {}
+                seen = set()
+                for idx, uid in enumerate(problem_uids):
+                    if uid not in seen:
+                        unique_problem_uids.append(uid)
+                        problem_source[uid] = normalized_sources[idx]
+                        seen.add(uid)
 
-            if solver_batch is None or len(solver_batch) == 0:
+                if solver_batch is None or len(solver_batch) == 0:
+                    for problem_uid in unique_problem_uids:
+                        source = problem_source[problem_uid]
+                        problem_best_rewards.append(0.0)
+                        problem_mean_rewards.append(0.0)
+                        source_problem_best_rewards[source].append(0.0)
+                        source_problem_mean_rewards[source].append(0.0)
+                    continue
+
+                reward_by_problem = defaultdict(list)
+                acc_by_problem = defaultdict(list)
+                for idx, problem_uid in enumerate(solver_batch.non_tensor_batch['problem_uid']):
+                    reward_by_problem[problem_uid].append(float(solver_batch.non_tensor_batch['seq_final_reward'][idx]))
+                    if 'acc' in solver_batch.non_tensor_batch:
+                        acc_by_problem[problem_uid].append(float(solver_batch.non_tensor_batch['acc'][idx]))
+
                 for problem_uid in unique_problem_uids:
                     source = problem_source[problem_uid]
-                    problem_best_rewards.append(0.0)
-                    problem_mean_rewards.append(0.0)
-                    source_problem_best_rewards[source].append(0.0)
-                    source_problem_mean_rewards[source].append(0.0)
-                continue
-
-            reward_by_problem = defaultdict(list)
-            acc_by_problem = defaultdict(list)
-            for idx, problem_uid in enumerate(solver_batch.non_tensor_batch['problem_uid']):
-                reward_by_problem[problem_uid].append(float(solver_batch.non_tensor_batch['seq_final_reward'][idx]))
-                if 'acc' in solver_batch.non_tensor_batch:
-                    acc_by_problem[problem_uid].append(float(solver_batch.non_tensor_batch['acc'][idx]))
-
-            for problem_uid in unique_problem_uids:
-                source = problem_source[problem_uid]
-                rewards = reward_by_problem.get(problem_uid, [0.0])
-                best_reward = float(np.max(rewards))
-                mean_reward = float(np.mean(rewards))
-                problem_best_rewards.append(best_reward)
-                problem_mean_rewards.append(mean_reward)
-                source_problem_best_rewards[source].append(best_reward)
-                source_problem_mean_rewards[source].append(mean_reward)
-                if acc_by_problem:
-                    accs = acc_by_problem.get(problem_uid, [0.0])
-                    best_acc = float(np.max(accs))
-                    mean_acc = float(np.mean(accs))
-                    problem_best_accs.append(best_acc)
-                    problem_mean_accs.append(mean_acc)
-                    source_problem_best_accs[source].append(best_acc)
-                    source_problem_mean_accs[source].append(mean_acc)
+                    rewards = reward_by_problem.get(problem_uid, [0.0])
+                    best_reward = float(np.max(rewards))
+                    mean_reward = float(np.mean(rewards))
+                    problem_best_rewards.append(best_reward)
+                    problem_mean_rewards.append(mean_reward)
+                    source_problem_best_rewards[source].append(best_reward)
+                    source_problem_mean_rewards[source].append(mean_reward)
+                    if acc_by_problem:
+                        accs = acc_by_problem.get(problem_uid, [0.0])
+                        best_acc = float(np.max(accs))
+                        mean_acc = float(np.mean(accs))
+                        problem_best_accs.append(best_acc)
+                        problem_mean_accs.append(mean_acc)
+                        source_problem_best_accs[source].append(best_acc)
+                        source_problem_mean_accs[source].append(mean_acc)
+        finally:
+            self.checkpoint_manager.sleep_replicas()
+            self.abstraction_checkpoint_manager.sleep_replicas()
 
         metrics = {
             'val/abstraction_valid_rate': float(np.mean(abstraction_validities)) if abstraction_validities else 0.0,
@@ -1131,6 +1771,12 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
 
                 with marked_timer('step', timing_raw):
                     solver_step_plan = self._get_solver_step_plan()
+                    abstraction_step_plan = self._get_abstraction_step_plan(solver_step_plan=solver_step_plan)
+                    metrics['two_policy/abstraction_is_update_step'] = float(abstraction_step_plan['is_update_step'])
+                    metrics['two_policy/abstractions_per_problem'] = abstraction_step_plan['num_rollouts']
+                    metrics['two_policy/abstraction_rollout_temperature'] = abstraction_step_plan['temperature']
+                    metrics['two_policy/abstraction_rollout_top_p'] = abstraction_step_plan['top_p']
+                    metrics['two_policy/abstraction_rollout_top_k'] = abstraction_step_plan['top_k']
                     metrics['two_policy/solver_is_update_step'] = float(solver_step_plan['is_update_step'])
                     metrics['two_policy/solver_rollouts_per_abstraction'] = solver_step_plan['num_rollouts']
                     metrics['two_policy/solver_rollout_temperature'] = solver_step_plan['temperature']
@@ -1141,8 +1787,11 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
                         batch=batch,
                         timing_raw=timing_raw,
                         do_profile=curr_step_profile,
-                        num_abstractions=self.config.two_policy.num_abstractions,
+                        num_abstractions=abstraction_step_plan['num_rollouts'],
                         num_solver_rollouts=solver_step_plan['num_rollouts'],
+                        abstraction_temperature=abstraction_step_plan['temperature'],
+                        abstraction_top_p=abstraction_step_plan['top_p'],
+                        abstraction_top_k=abstraction_step_plan['top_k'],
                         solver_temperature=solver_step_plan['temperature'],
                         solver_top_p=solver_step_plan['top_p'],
                         solver_top_k=solver_step_plan['top_k'],
@@ -1182,21 +1831,22 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
                         metrics['two_policy/filter_solver_groups_kept'] = len(kept_abstraction_uids)
                         solver_batch = self._select_by_group_uids(solver_batch, 'abstraction_uid', kept_abstraction_uids)
 
-                    abstraction_batch = self._prepare_branch_batch(
-                        batch=abstraction_batch,
-                        branch_cfg=self.config.abstraction_actor_rollout_ref,
-                        actor_rollout_wg=self.abstraction_actor_rollout_wg,
-                        ref_policy_wg=self.abstraction_ref_policy_wg,
-                        ref_in_actor=self.abstraction_ref_in_actor,
-                        use_reference_policy=self.use_abstraction_reference_policy,
-                        use_prefix_grouper=self.abstraction_use_prefix_grouper,
-                        num_repeat=self.config.two_policy.num_abstractions,
-                        branch_prefix='abstraction_actor',
-                        kl_ctrl=self.abstraction_kl_ctrl_in_reward,
-                        metrics=metrics,
-                        timing_raw=timing_raw,
-                        timing_prefix='abstraction',
-                    )
+                    if abstraction_step_plan['is_update_step']:
+                        abstraction_batch = self._prepare_branch_batch(
+                            batch=abstraction_batch,
+                            branch_cfg=self.config.abstraction_actor_rollout_ref,
+                            actor_rollout_wg=self.abstraction_actor_rollout_wg,
+                            ref_policy_wg=self.abstraction_ref_policy_wg,
+                            ref_in_actor=self.abstraction_ref_in_actor,
+                            use_reference_policy=self.use_abstraction_reference_policy,
+                            use_prefix_grouper=self.abstraction_use_prefix_grouper,
+                            num_repeat=abstraction_step_plan['num_rollouts'],
+                            branch_prefix='abstraction_actor',
+                            kl_ctrl=self.abstraction_kl_ctrl_in_reward,
+                            metrics=metrics,
+                            timing_raw=timing_raw,
+                            timing_prefix='abstraction',
+                        )
                     if solver_step_plan['is_update_step']:
                         solver_batch = self._prepare_branch_batch(
                             batch=solver_batch,
@@ -1229,19 +1879,20 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
                                         branch_prefix='actor',
                                     )
                                 )
-                        with marked_timer('update_abstraction_actor', timing_raw, color='red'):
-                            metrics.update(
-                                self._update_actor_for_branch(
-                                    batch=abstraction_batch,
-                                    branch_cfg=self.config.abstraction_actor_rollout_ref,
-                                    actor_rollout_wg=self.abstraction_actor_rollout_wg,
-                                    ref_policy_wg=self.abstraction_ref_policy_wg,
-                                    ref_in_actor=self.abstraction_ref_in_actor,
-                                    use_reference_policy=self.use_abstraction_reference_policy,
-                                    use_prefix_grouper=self.abstraction_use_prefix_grouper,
-                                    branch_prefix='abstraction_actor',
+                        if abstraction_step_plan['is_update_step']:
+                            with marked_timer('update_abstraction_actor', timing_raw, color='red'):
+                                metrics.update(
+                                    self._update_actor_for_branch(
+                                        batch=abstraction_batch,
+                                        branch_cfg=self.config.abstraction_actor_rollout_ref,
+                                        actor_rollout_wg=self.abstraction_actor_rollout_wg,
+                                        ref_policy_wg=self.abstraction_ref_policy_wg,
+                                        ref_in_actor=self.abstraction_ref_in_actor,
+                                        use_reference_policy=self.use_abstraction_reference_policy,
+                                        use_prefix_grouper=self.abstraction_use_prefix_grouper,
+                                        branch_prefix='abstraction_actor',
+                                    )
                                 )
-                            )
 
                         esi_close_to_expiration = should_save_ckpt_esi(
                             max_steps_duration=self.max_steps_duration,
@@ -1299,6 +1950,15 @@ class TwoPolicyGRPOTrainer(RayPPOTrainer):
                 metrics.update({'training/global_step': self.global_steps, 'training/epoch': epoch})
                 metrics.update(self._summarize_batches(abstraction_batch, solver_batch))
                 metric_batch = solver_batch if self._is_metric_ready_batch(solver_batch) else abstraction_batch
+                if not self._is_metric_ready_batch(metric_batch):
+                    raise RuntimeError(
+                        self._build_missing_ppo_batch_error(
+                            abstraction_batch=abstraction_batch,
+                            solver_batch=solver_batch,
+                            abstraction_step_plan=abstraction_step_plan,
+                            solver_step_plan=solver_step_plan,
+                        )
+                    )
                 metrics.update(compute_data_metrics(batch=metric_batch, use_critic=False))
                 metrics.update(compute_timing_metrics(batch=metric_batch, timing_raw=timing_raw))
                 metrics.update(

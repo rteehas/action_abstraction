@@ -423,6 +423,7 @@ class AgentLoopWorker:
         """
         config = self.rollout_config
         response_length = int(batch.meta_info.get("response_length", config.response_length))
+        prompt_length = int(batch.meta_info.get("prompt_length", config.prompt_length))
         sampling_params = dict(
             temperature=batch.meta_info.get("temperature", config.temperature),
             top_p=batch.meta_info.get("top_p", config.top_p),
@@ -479,6 +480,7 @@ class AgentLoopWorker:
                         trajectory_info[i],
                         trace=trace_this_sample,
                         response_length=response_length,
+                        prompt_length=prompt_length,
                         **kwargs,
                     )
                 )
@@ -550,10 +552,11 @@ class AgentLoopWorker:
 
         # TODO(wuxibin): remove padding and use tensordict.
         self.tokenizer.padding_side = "left"
+        effective_prompt_length = int(kwargs.get("prompt_length", self.rollout_config.prompt_length))
         prompt_output = self.tokenizer.pad(
             {"input_ids": output.prompt_ids},
             padding="max_length",
-            max_length=self.rollout_config.prompt_length,
+            max_length=effective_prompt_length,
             return_tensors="pt",
             return_attention_mask=True,
         )

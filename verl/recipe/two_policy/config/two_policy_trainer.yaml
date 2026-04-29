@@ -30,13 +30,49 @@ two_policy:
   validation_num_abstractions: 1
   validation_num_solver_rollouts: 1
   validation_solver_response_length: null
+  control_abstraction:
+    enable: False
+    text: 'Identify the givens, translate the problem into mathematical relations, and solve step by step.'
+    include_in_validation: False
   decoupled_solver_schedule:
     enable: False
+    mode: periodic
     solver_update_every_n_steps: 1
+    block_size: 1
+    start_with: solver
     non_update_solver_rollouts: 1
     non_update_solver_temperature: 0.0
     non_update_solver_top_p: 1.0
     non_update_solver_top_k: -1
+  decoupled_abstraction_schedule:
+    enable: False
+    use_solver_update_complement: True
+    non_update_abstractions: 1
+    non_update_abstraction_temperature: 0.0
+    non_update_abstraction_top_p: 1.0
+    non_update_abstraction_top_k: -1
+  vm_reward:
+    enable: False
+    model_path: VGS-AI/DeepSeek-VM-1.5B
+    tokenizer_path: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+    attn_implementation: flash_attention_2
+    torch_dtype: bfloat16
+    device: null
+    device_map: auto
+    scoring_batch_size: 8
+    transform: logit
+    normalization: zscore
+    combination: add
+    prob_clip: 1.0e-4
+    zscore_eps: 1.0e-6
+    zscore_clip: 3.0
+    solver_weight: 0.1
+    abstraction_weight: 0.1
+    offload:
+      enable: False
+      folder: null
+      state_dict: True
+      low_cpu_mem_usage: True
   min_abstraction_chars: 32
   max_num_principles: 5
   require_principle_headers: True
@@ -66,3 +102,5 @@ two_policy:
 
 trainer:
   project_name: verl-two-policy
+  actor_master_port_range: null
+  abstraction_master_port_range: null

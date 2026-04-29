@@ -9,7 +9,6 @@ cd "${REPO_ROOT}/verl"
 export VLLM_ATTENTION_BACKEND=FLASH_ATTN
 export TOKENIZERS_PARALLELISM=false
 export HYDRA_FULL_ERROR=1
-# export CUDA_LAUNCH_BLOCKING=1
 
 ABSTRACTION_MODEL_PATH=${ABSTRACTION_MODEL_PATH:-${REPO_ROOT}/merged_models/qwen3_1_7b_principle_generator_ckpt1736}
 SOLVER_MODEL_PATH=${SOLVER_MODEL_PATH:-Qwen/Qwen3-1.7B}
@@ -26,6 +25,13 @@ case "${GPU_TUNING_PRESET}" in
     DEFAULT_ROLLOUT_MAX_NUM_SEQS=128
     DEFAULT_SOLVER_MAX_BATCHED_TOKENS=8192
     DEFAULT_ABSTRACTION_MAX_BATCHED_TOKENS=2048
+    ;;
+  single_gpu_safe)
+    DEFAULT_SOLVER_GPU_MEM_UTIL=0.30
+    DEFAULT_ABSTRACTION_GPU_MEM_UTIL=0.16
+    DEFAULT_ROLLOUT_MAX_NUM_SEQS=32
+    DEFAULT_SOLVER_MAX_BATCHED_TOKENS=4096
+    DEFAULT_ABSTRACTION_MAX_BATCHED_TOKENS=1024
     ;;
   h200_balanced)
     DEFAULT_SOLVER_GPU_MEM_UTIL=0.50
@@ -55,6 +61,8 @@ ABSTRACTION_GPU_MEM_UTIL=${ABSTRACTION_GPU_MEM_UTIL:-${DEFAULT_ABSTRACTION_GPU_M
 ROLLOUT_MAX_NUM_SEQS=${ROLLOUT_MAX_NUM_SEQS:-${DEFAULT_ROLLOUT_MAX_NUM_SEQS}}
 SOLVER_MAX_BATCHED_TOKENS=${SOLVER_MAX_BATCHED_TOKENS:-${DEFAULT_SOLVER_MAX_BATCHED_TOKENS}}
 ABSTRACTION_MAX_BATCHED_TOKENS=${ABSTRACTION_MAX_BATCHED_TOKENS:-${DEFAULT_ABSTRACTION_MAX_BATCHED_TOKENS}}
+SOLVER_UPDATE_WEIGHTS_BUCKET_MB=${SOLVER_UPDATE_WEIGHTS_BUCKET_MB:-512}
+ABSTRACTION_UPDATE_WEIGHTS_BUCKET_MB=${ABSTRACTION_UPDATE_WEIGHTS_BUCKET_MB:-512}
 ACTOR_PARAM_OFFLOAD=${ACTOR_PARAM_OFFLOAD:-True}
 ACTOR_OPTIMIZER_OFFLOAD=${ACTOR_OPTIMIZER_OFFLOAD:-True}
 ROLLOUT_ENFORCE_EAGER=${ROLLOUT_ENFORCE_EAGER:-True}
@@ -67,30 +75,50 @@ TRAINER_SAVE_FREQ=${TRAINER_SAVE_FREQ:-10}
 TRAINER_TEST_FREQ=${TRAINER_TEST_FREQ:-10}
 TRAINER_TOTAL_EPOCHS=${TRAINER_TOTAL_EPOCHS:-10}
 TRAINER_VAL_BEFORE_TRAIN=${TRAINER_VAL_BEFORE_TRAIN:-True}
-TRAINER_PROJECT_NAME=${TRAINER_PROJECT_NAME:-verl_two_policy_dapo}
-TRAINER_EXPERIMENT_NAME=${TRAINER_EXPERIMENT_NAME:-qwen3_1.7b}
-RAY_NUM_CPUS=${RAY_NUM_CPUS:-8}
+TRAINER_PROJECT_NAME=${TRAINER_PROJECT_NAME:-verl_two_policy_vm_prune_dapo}
+TRAINER_EXPERIMENT_NAME=${TRAINER_EXPERIMENT_NAME:-qwen3_1.7b_vm_prune}
+RAY_NUM_CPUS=${RAY_NUM_CPUS:-180}
 RAY_TIMELINE_JSON_FILE=${RAY_TIMELINE_JSON_FILE:-}
+SOLVER_MASTER_PORT_RANGE=${SOLVER_MASTER_PORT_RANGE:-[29500,29549]}
+ABSTRACTION_MASTER_PORT_RANGE=${ABSTRACTION_MASTER_PORT_RANGE:-[29550,29599]}
 TWO_POLICY_DECOUPLED_SOLVER_SCHEDULE_ENABLE=${TWO_POLICY_DECOUPLED_SOLVER_SCHEDULE_ENABLE:-False}
 TWO_POLICY_SOLVER_UPDATE_EVERY_N_STEPS=${TWO_POLICY_SOLVER_UPDATE_EVERY_N_STEPS:-1}
 TWO_POLICY_NON_UPDATE_SOLVER_ROLLOUTS=${TWO_POLICY_NON_UPDATE_SOLVER_ROLLOUTS:-1}
 TWO_POLICY_NON_UPDATE_SOLVER_TEMPERATURE=${TWO_POLICY_NON_UPDATE_SOLVER_TEMPERATURE:-0.0}
 TWO_POLICY_NON_UPDATE_SOLVER_TOP_P=${TWO_POLICY_NON_UPDATE_SOLVER_TOP_P:-1.0}
 TWO_POLICY_NON_UPDATE_SOLVER_TOP_K=${TWO_POLICY_NON_UPDATE_SOLVER_TOP_K:--1}
-TWO_POLICY_CONTROL_ABSTRACTION_ENABLE=${TWO_POLICY_CONTROL_ABSTRACTION_ENABLE:-False}
-TWO_POLICY_CONTROL_ABSTRACTION_TEXT=${TWO_POLICY_CONTROL_ABSTRACTION_TEXT:-Identify the givens, translate the problem into mathematical relations, and solve step by step.}
-TWO_POLICY_CONTROL_ABSTRACTION_INCLUDE_IN_VALIDATION=${TWO_POLICY_CONTROL_ABSTRACTION_INCLUDE_IN_VALIDATION:-False}
-TWO_POLICY_VM_REWARD_ENABLE=${TWO_POLICY_VM_REWARD_ENABLE:-False}
-TWO_POLICY_VM_REWARD_TRANSFORM=${TWO_POLICY_VM_REWARD_TRANSFORM:-logit}
-TWO_POLICY_VM_REWARD_SOLVER_WEIGHT=${TWO_POLICY_VM_REWARD_SOLVER_WEIGHT:-0.1}
-TWO_POLICY_VM_REWARD_ABSTRACTION_WEIGHT=${TWO_POLICY_VM_REWARD_ABSTRACTION_WEIGHT:-0.1}
+FILTER_GROUPS_ENABLE=${FILTER_GROUPS_ENABLE:-True}
+FILTER_GROUPS_METRIC=${FILTER_GROUPS_METRIC:-acc}
+FILTER_GROUPS_MAX_NUM_GEN_BATCHES=${FILTER_GROUPS_MAX_NUM_GEN_BATCHES:-4}
+VM_PRUNING_ENABLE=${VM_PRUNING_ENABLE:-True}
+VM_PRUNING_APPLY_IN_VALIDATION=${VM_PRUNING_APPLY_IN_VALIDATION:-False}
+VM_MODEL_PATH=${VM_MODEL_PATH:-VGS-AI/DeepSeek-VM-1.5B}
+VM_TOKENIZER_PATH=${VM_TOKENIZER_PATH:-deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B}
+VM_ATTN_IMPLEMENTATION=${VM_ATTN_IMPLEMENTATION:-flash_attention_2}
+VM_TORCH_DTYPE=${VM_TORCH_DTYPE:-bfloat16}
+VM_DEVICE=${VM_DEVICE:-}
+VM_DEVICE_MAP=${VM_DEVICE_MAP:-auto}
+VM_SCORING_BATCH_SIZE=${VM_SCORING_BATCH_SIZE:-8}
+VM_BLOCK_LENGTH=${VM_BLOCK_LENGTH:-4096}
+VM_SOLVER_KEEP_FRACTION=${VM_SOLVER_KEEP_FRACTION:-0.5}
+VM_SOLVER_MIN_KEEP=${VM_SOLVER_MIN_KEEP:-1}
+VM_SOLVER_KEEP_COUNT=${VM_SOLVER_KEEP_COUNT:-}
+VM_SOLVER_ROUNDING=${VM_SOLVER_ROUNDING:-ceil}
+VM_ABSTRACTION_KEEP_FRACTION=${VM_ABSTRACTION_KEEP_FRACTION:-0.5}
+VM_ABSTRACTION_MIN_KEEP=${VM_ABSTRACTION_MIN_KEEP:-1}
+VM_ABSTRACTION_KEEP_COUNT=${VM_ABSTRACTION_KEEP_COUNT:-}
+VM_ABSTRACTION_ROUNDING=${VM_ABSTRACTION_ROUNDING:-ceil}
 MAX_RESP_LEN=$(( ABSTRACTION_MAX_RESP_LEN > SOLVER_MAX_RESP_LEN ? ABSTRACTION_MAX_RESP_LEN : SOLVER_MAX_RESP_LEN ))
 RUN_TAG=${RUN_TAG:-$(date -u +%Y%m%d_%H%M%S)}
 RUN_ROOT=${RUN_ROOT:-/tmp/action_abstraction/two_policy_runs}
-RUN_DIR=${RUN_DIR:-${RUN_ROOT}/full_dapo_${RUN_TAG}}
+RUN_DIR=${RUN_DIR:-${RUN_ROOT}/full_vm_prune_dapo_${RUN_TAG}}
 ROLLOUT_DIR=${ROLLOUT_DIR:-${RUN_DIR}/rollouts}
 CHECKPOINT_DIR=${CHECKPOINT_DIR:-${RUN_DIR}/checkpoints}
 VALIDATION_DIR=${VALIDATION_DIR:-${RUN_DIR}/validation_rollouts}
+VM_OFFLOAD_ENABLE=${VM_OFFLOAD_ENABLE:-False}
+VM_OFFLOAD_FOLDER=${VM_OFFLOAD_FOLDER:-${RUN_DIR}/vm_offload}
+VM_OFFLOAD_STATE_DICT=${VM_OFFLOAD_STATE_DICT:-True}
+VM_LOW_CPU_MEM_USAGE=${VM_LOW_CPU_MEM_USAGE:-True}
 GLOBAL_PROFILER_TOOL=${GLOBAL_PROFILER_TOOL:-}
 GLOBAL_PROFILER_STEPS=${GLOBAL_PROFILER_STEPS:-[1]}
 GLOBAL_PROFILER_CONTINUOUS_STEPS=${GLOBAL_PROFILER_CONTINUOUS_STEPS:-False}
@@ -111,6 +139,9 @@ TORCH_MEMORY_TRACE_ALLOC_MAX_ENTRIES=${TORCH_MEMORY_TRACE_ALLOC_MAX_ENTRIES:-100
 TORCH_MEMORY_STACK_DEPTH=${TORCH_MEMORY_STACK_DEPTH:-32}
 
 mkdir -p "${RUN_DIR}" "${ROLLOUT_DIR}" "${CHECKPOINT_DIR}" "${VALIDATION_DIR}"
+if [[ "${VM_OFFLOAD_ENABLE}" = "True" ]]; then
+  mkdir -p "${VM_OFFLOAD_FOLDER}"
+fi
 
 args=(
   hydra.searchpath=[file://${REPO_ROOT}/verl/verl/trainer/config]
@@ -152,6 +183,7 @@ args=(
   actor_rollout_ref.rollout.response_length="${SOLVER_MAX_RESP_LEN}"
   actor_rollout_ref.rollout.enforce_eager="${ROLLOUT_ENFORCE_EAGER}"
   actor_rollout_ref.rollout.free_cache_engine="${ROLLOUT_FREE_CACHE_ENGINE}"
+  actor_rollout_ref.rollout.checkpoint_engine.update_weights_bucket_megabytes="${SOLVER_UPDATE_WEIGHTS_BUCKET_MB}"
   actor_rollout_ref.rollout.load_format=safetensors
   actor_rollout_ref.ref.fsdp_config.param_offload=True
   abstraction_actor_rollout_ref.model.path="${ABSTRACTION_MODEL_PATH}"
@@ -185,6 +217,7 @@ args=(
   abstraction_actor_rollout_ref.rollout.response_length="${ABSTRACTION_MAX_RESP_LEN}"
   abstraction_actor_rollout_ref.rollout.enforce_eager="${ROLLOUT_ENFORCE_EAGER}"
   abstraction_actor_rollout_ref.rollout.free_cache_engine="${ROLLOUT_FREE_CACHE_ENGINE}"
+  abstraction_actor_rollout_ref.rollout.checkpoint_engine.update_weights_bucket_megabytes="${ABSTRACTION_UPDATE_WEIGHTS_BUCKET_MB}"
   abstraction_actor_rollout_ref.rollout.load_format=safetensors
   abstraction_actor_rollout_ref.ref.fsdp_config.param_offload=True
   two_policy.abstraction_prompt_template_path="${ABSTRACTION_PROMPT_TEMPLATE_PATH}"
@@ -200,19 +233,32 @@ args=(
   two_policy.decoupled_solver_schedule.non_update_solver_temperature="${TWO_POLICY_NON_UPDATE_SOLVER_TEMPERATURE}"
   two_policy.decoupled_solver_schedule.non_update_solver_top_p="${TWO_POLICY_NON_UPDATE_SOLVER_TOP_P}"
   two_policy.decoupled_solver_schedule.non_update_solver_top_k="${TWO_POLICY_NON_UPDATE_SOLVER_TOP_K}"
-  two_policy.control_abstraction.enable="${TWO_POLICY_CONTROL_ABSTRACTION_ENABLE}"
-  two_policy.control_abstraction.text="${TWO_POLICY_CONTROL_ABSTRACTION_TEXT}"
-  two_policy.control_abstraction.include_in_validation="${TWO_POLICY_CONTROL_ABSTRACTION_INCLUDE_IN_VALIDATION}"
-  two_policy.vm_reward.enable="${TWO_POLICY_VM_REWARD_ENABLE}"
-  two_policy.vm_reward.transform="${TWO_POLICY_VM_REWARD_TRANSFORM}"
-  two_policy.vm_reward.solver_weight="${TWO_POLICY_VM_REWARD_SOLVER_WEIGHT}"
-  two_policy.vm_reward.abstraction_weight="${TWO_POLICY_VM_REWARD_ABSTRACTION_WEIGHT}"
+  two_policy.vm_pruning.enable="${VM_PRUNING_ENABLE}"
+  two_policy.vm_pruning.apply_in_validation="${VM_PRUNING_APPLY_IN_VALIDATION}"
+  two_policy.vm_pruning.model_path="${VM_MODEL_PATH}"
+  two_policy.vm_pruning.tokenizer_path="${VM_TOKENIZER_PATH}"
+  two_policy.vm_pruning.attn_implementation="${VM_ATTN_IMPLEMENTATION}"
+  two_policy.vm_pruning.torch_dtype="${VM_TORCH_DTYPE}"
+  two_policy.vm_pruning.scoring_batch_size="${VM_SCORING_BATCH_SIZE}"
+  two_policy.vm_pruning.block_length="${VM_BLOCK_LENGTH}"
+  two_policy.vm_pruning.offload.enable="${VM_OFFLOAD_ENABLE}"
+  two_policy.vm_pruning.offload.folder="${VM_OFFLOAD_FOLDER}"
+  two_policy.vm_pruning.offload.state_dict="${VM_OFFLOAD_STATE_DICT}"
+  two_policy.vm_pruning.offload.low_cpu_mem_usage="${VM_LOW_CPU_MEM_USAGE}"
+  two_policy.vm_pruning.solver_update.keep_fraction="${VM_SOLVER_KEEP_FRACTION}"
+  two_policy.vm_pruning.solver_update.min_keep="${VM_SOLVER_MIN_KEEP}"
+  two_policy.vm_pruning.solver_update.rounding="${VM_SOLVER_ROUNDING}"
+  two_policy.vm_pruning.abstraction_update.keep_fraction="${VM_ABSTRACTION_KEEP_FRACTION}"
+  two_policy.vm_pruning.abstraction_update.min_keep="${VM_ABSTRACTION_MIN_KEEP}"
+  two_policy.vm_pruning.abstraction_update.rounding="${VM_ABSTRACTION_ROUNDING}"
   trainer.critic_warmup=0
   trainer.logger=[console,wandb]
   trainer.project_name="${TRAINER_PROJECT_NAME}"
   trainer.experiment_name="${TRAINER_EXPERIMENT_NAME}"
   trainer.n_gpus_per_node=1
   trainer.nnodes=1
+  trainer.actor_master_port_range="${SOLVER_MASTER_PORT_RANGE}"
+  trainer.abstraction_master_port_range="${ABSTRACTION_MASTER_PORT_RANGE}"
   trainer.rollout_data_dir="${ROLLOUT_DIR}"
   trainer.validation_data_dir="${VALIDATION_DIR}"
   trainer.default_local_dir="${CHECKPOINT_DIR}"
@@ -224,14 +270,26 @@ args=(
   trainer.max_actor_ckpt_to_keep=1
   reward.custom_reward_function.path="${REPO_ROOT}/verl/verl/utils/reward_score/deepscaler_math_reward_multibox_patched.py"
   reward.custom_reward_function.name=compute_score
-  algorithm.filter_groups.enable=True
-  algorithm.filter_groups.metric=acc
-  algorithm.filter_groups.max_num_gen_batches=4
+  algorithm.filter_groups.enable="${FILTER_GROUPS_ENABLE}"
+  algorithm.filter_groups.metric="${FILTER_GROUPS_METRIC}"
+  algorithm.filter_groups.max_num_gen_batches="${FILTER_GROUPS_MAX_NUM_GEN_BATCHES}"
   reward.reward_manager.name=dapo
   reward.reward_kwargs.max_resp_len="${SOLVER_MAX_RESP_LEN}"
   ray_kwargs.ray_init.num_cpus="${RAY_NUM_CPUS}"
 )
 
+if [[ -n "${VM_DEVICE}" ]]; then
+  args+=("two_policy.vm_pruning.device=${VM_DEVICE}")
+  args+=("two_policy.vm_pruning.device_map=none")
+elif [[ -n "${VM_DEVICE_MAP}" ]]; then
+  args+=("two_policy.vm_pruning.device_map=${VM_DEVICE_MAP}")
+fi
+if [[ -n "${VM_SOLVER_KEEP_COUNT}" ]]; then
+  args+=("two_policy.vm_pruning.solver_update.keep_count=${VM_SOLVER_KEEP_COUNT}")
+fi
+if [[ -n "${VM_ABSTRACTION_KEEP_COUNT}" ]]; then
+  args+=("two_policy.vm_pruning.abstraction_update.keep_count=${VM_ABSTRACTION_KEEP_COUNT}")
+fi
 if [[ -n "${RAY_TIMELINE_JSON_FILE}" ]]; then
   args+=("ray_kwargs.timeline_json_file=${RAY_TIMELINE_JSON_FILE}")
 fi
@@ -272,4 +330,4 @@ if [[ -n "${GLOBAL_PROFILER_TOOL}" ]]; then
   esac
 fi
 
-python3 -m recipe.two_policy.main_two_policy_dapo "${args[@]}" "$@"
+python3 -m recipe.two_policy.main_two_policy_vm_prune_dapo "${args[@]}" "$@"
